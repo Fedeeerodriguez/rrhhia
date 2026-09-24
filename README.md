@@ -1,4 +1,4 @@
-# hire-demo
+# RRHHIA
 
 Filtro automatico de candidatos para reclutamiento. Tres demos sobre **un solo
 motor de scoring**, pensadas para una empresa de transporte de Nuevo Leon.
