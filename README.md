@@ -12,6 +12,22 @@ motor de scoring**, pensadas para una empresa de transporte de Nuevo Leon.
 Las tres comparten `core/`: modelos, motor de scoring, tablero y mensajes. Un
 arreglo al motor queda arreglado en las tres.
 
+## Ramas
+
+Una rama por demo. `main` tiene **solo el nucleo compartido** y es la unica
+fuente del motor de scoring; cada demo vive en su rama y toma el nucleo de ahi.
+
+| Rama | Demo |
+|---|---|
+| `main` | nucleo compartido (scoring, pipeline, mensajes). No tiene UI. |
+| `demo-cv` | Demo A -- carga masiva de CVs en PDF |
+| `demo-formulario` | Demo B -- formulario publico del candidato |
+| `demo-hibrido` | Demo C -- el CV prellena el formulario |
+
+**Regla:** todo cambio al nucleo se hace en `main` y se propaga con
+`git merge main` a las tres ramas. Nunca al reves. Si el motor se arregla en una
+rama de demo, las otras dos quedan mintiendo.
+
 ## Por que el scoring es Python puro
 
 La IA **solo extrae datos**. La calificacion es codigo deterministico sobre
