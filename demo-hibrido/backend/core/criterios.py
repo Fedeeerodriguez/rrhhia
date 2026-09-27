@@ -113,6 +113,11 @@ def _apto_medico(perfil: Perfil, params: dict):
 
 # --- Experiencia --------------------------------------------------------------
 
+def _anios(cantidad: float) -> str:
+    """1 año, 2 años, 2.5 años."""
+    return f"{cantidad:g} año" + ("" if cantidad == 1 else "s")
+
+
 @evaluador("experiencia_anios")
 def _experiencia(perfil: Perfil, params: dict):
     minimo = float(params["minimo"])
@@ -122,11 +127,11 @@ def _experiencia(perfil: Perfil, params: dict):
     anios = float(perfil.anios_experiencia.valor)
     if anios < minimo:
         parcial = max(0.0, anios / minimo) * 0.6
-        return parcial, False, f"{anios:g} años de experiencia; se piden {minimo:g}", False
+        return parcial, False, f"{_anios(anios)} de experiencia; se piden {minimo:g}", False
     if anios >= ideal:
-        return 1.0, True, f"{anios:g} años de experiencia (supera los {minimo:g} pedidos)", False
+        return 1.0, True, f"{_anios(anios)} de experiencia (supera los {minimo:g} pedidos)", False
     rango = max(ideal - minimo, 0.001)
-    return 0.7 + 0.3 * (anios - minimo) / rango, True, f"{anios:g} años de experiencia", False
+    return 0.7 + 0.3 * (anios - minimo) / rango, True, f"{_anios(anios)} de experiencia", False
 
 
 @evaluador("unidades_manejadas")
@@ -153,7 +158,8 @@ def _estabilidad(perfil: Perfil, params: dict):
     recientes = [e for e in perfil.historial.valor if (e.hasta or date.today()) >= corte]
     cambios = max(0, len(recientes) - 1)
     if cambios <= max_cambios:
-        return 1.0, True, f"{len(recientes)} empleos en los últimos 5 años", False
+        plural = "empleo" if len(recientes) == 1 else "empleos"
+        return 1.0, True, f"{len(recientes)} {plural} en los últimos 5 años", False
     exceso = cambios - max_cambios
     return (max(0.0, 1.0 - 0.25 * exceso), True,
             f"{len(recientes)} empleos en 5 años · rotación alta", False)
