@@ -1,83 +1,103 @@
 # RRHHIA
 
-Filtro automatico de candidatos para reclutamiento. Tres demos sobre **un solo
-motor de scoring**, pensadas para una empresa de transporte de Nuevo Leon.
+Filtro automático de candidatos para Recursos Humanos. Tres demos
+**independientes**, pensadas para una empresa de transporte de Nuevo León.
 
-| Demo | Entrada del candidato | Que muestra |
+| Carpeta | Demo | Entrada del candidato |
 |---|---|---|
-| **A** `apps/a_cv` | Carga masiva de CVs en PDF | Extraccion con IA + ranking automatico |
-| **B** `apps/b_form` | Formulario publico | Scoring instantaneo, deterministico, sin costo de API |
-| **C** `apps/c_hibrido` | CV que prellena el formulario | Cada campo con su confianza y el fragmento del CV que lo justifica |
+| `demo-cv/` | **A — CV first** | El reclutador arrastra 10-15 CVs en PDF |
+| `demo-formulario/` | **B — Formulario** | Link público, ocho campos, desde el celular |
+| `demo-hibrido/` | **C — Híbrido** | El CV prellena el formulario y una persona confirma |
 
-Las tres comparten `core/`: modelos, motor de scoring, tablero y mensajes. Un
-arreglo al motor queda arreglado en las tres.
+Cada carpeta tiene su propio `backend/` y `frontend/`, corre sola y se despliega
+sola. Comparten el mismo motor de scoring, copiado en cada una.
 
-## Ramas
-
-Una rama por demo. `main` tiene **solo el nucleo compartido** y es la unica
-fuente del motor de scoring; cada demo vive en su rama y toma el nucleo de ahi.
-
-| Rama | Demo |
-|---|---|
-| `main` | nucleo compartido (scoring, pipeline, mensajes). No tiene UI. |
-| `demo-cv` | Demo A -- carga masiva de CVs en PDF |
-| `demo-formulario` | Demo B -- formulario publico del candidato |
-| `demo-hibrido` | Demo C -- el CV prellena el formulario |
-
-**Regla:** todo cambio al nucleo se hace en `main` y se propaga con
-`git merge main` a las tres ramas. Nunca al reves. Si el motor se arregla en una
-rama de demo, las otras dos quedan mintiendo.
-
-## Por que el scoring es Python puro
-
-La IA **solo extrae datos**. La calificacion es codigo deterministico sobre
-datos ya estructurados. Eso da dos cosas que importan en una demo en vivo:
-
-1. **Reproducible** -- el mismo candidato saca el mismo numero siempre. Nada
-   peor que un porcentaje que cambia al recargar.
-2. **Explicable** -- cada punto se desglosa por criterio, con una frase en
-   castellano. Es lo que convierte "87%" en una decision.
-
-Si la API falla durante la presentacion, los resultados ya estan en la base y
-la demo sigue.
-
-## Reglas del motor
-
-- Los **requisitos indispensables son knockout**: si falta uno, el score topa
-  en 40 por mas que el candidato brille en todo lo demas.
-- Dentro de ese techo los descartados **igual se ordenan** por cuantos
-  indispensables cumplieron. Al que solo se le vencio la licencia lo recuperas
-  en dos semanas; al que le faltan cuatro requisitos, no.
-- **"No se pudo verificar" no es "no cumple".** Un dato ausente se muestra como
-  alerta para pedirselo al candidato, no como descarte.
-
-## Correr
+## Correr una demo
 
 ```bash
+cd demo-formulario/backend
 pip install -r requirements.txt
-pytest -q                      # 12 tests sobre el motor
-python -m core.seed.reporte    # ranking de los 15 candidatos de prueba
+python seed.py --reset                       # vacante + 15 candidatos calificados
+uvicorn main:app --reload --port 8000
+
+cd ../frontend
+npm install
+npm run dev                                  # http://localhost:5173
 ```
 
-## Estructura
+Puertos por demo, para poder levantar las tres a la vez:
+
+| Demo | Backend | Frontend |
+|---|---|---|
+| `demo-formulario` | 8000 | 5173 |
+| `demo-cv` | 8001 | 5174 |
+| `demo-hibrido` | 8002 | 5175 |
+
+## Cómo funciona
+
+Dos etapas deliberadamente separadas:
+
+1. **Extracción** — PDF → texto → Claude devuelve cada dato con su confianza y
+   el fragmento exacto del CV que lo justifica.
+2. **Calificación** — Python puro, determinista, sobre datos ya estructurados.
+
+Si no hay `ANTHROPIC_API_KEY`, o si la IA no responde en medio de la
+presentación, la extracción cae a un **motor heurístico** de reglas y la carga
+no se detiene. Ese motor reproduce el mismo score que el formulario en los 15
+candidatos de prueba.
+
+### Las reglas que hay que saber defender
+
+- **Los requisitos indispensables son knockout**: si falta uno, el score topa en
+  40 por más que el candidato brille en todo lo demás.
+- **Dentro de ese techo los descartados igual se ordenan** por cuántos
+  indispensables cumplieron. Al que solo se le venció la licencia lo recuperas
+  en dos semanas; al que le faltan cuatro requisitos, no.
+- **"No se pudo verificar" ≠ "no cumple".** Un dato ausente es una alerta para
+  pedírselo al candidato, no un descarte.
+- **El sistema propone, la persona decide.** Nada se mueve solo de columna.
+- **Ningún score se muestra sin su porqué**, en ninguna pantalla.
+
+## Tests
+
+```bash
+cd demo-cv/backend && pytest -q        # 67
+cd demo-formulario/backend && pytest -q  # 43
+cd demo-hibrido/backend && pytest -q   # 70
+```
+
+Los tests **no llaman a la API**: `tests/conftest.py` saca la
+`ANTHROPIC_API_KEY` del entorno. Sin eso tardan minutos, gastan dinero y dejan
+de ser deterministas.
+
+## Estructura de cada proyecto
 
 ```
-core/
-  domain.py       Campo con {valor, origen, confianza, fragmento}; perfil del candidato
-  criterios.py    Un evaluador por criterio -> puntaje + por que
-  scoring.py      Vacante, Score, knockouts, ranking
-  seed/           Vacante de la demo + 15 candidatos calibrados
-apps/             Las tres demos (backend + frontend)
-docs/             Investigacion de vacantes reales de Nuevo Leon
+backend/
+  core/         dominio, criterios, scoring, pipeline, mensajes, extracción, persistencia
+  core/seed/    vacante, 15 candidatos calibrados, generador de CVs de prueba
+  main.py       la API propia de esa demo
+  seed.py       deja la base poblada para la presentación
+frontend/
+  src/componentes/   tablero, panel de detalle, bandeja + la pantalla propia de la demo
 ```
 
-## Datos
+## Datos de prueba
 
-Vacante y candidatos estan calibrados contra vacantes reales publicadas en
-Nuevo Leon y contra el Acuerdo de categorias de licencia federal del DOF. Ver
-[docs/investigacion-vacantes-nl.md](docs/investigacion-vacantes-nl.md).
+Vacante y candidatos están calibrados contra vacantes reales de Nuevo León y
+contra el Acuerdo de categorías de licencia federal del DOF
+([docs/investigacion-vacantes-nl.md](docs/investigacion-vacantes-nl.md)).
 
-Los 15 candidatos de prueba son **ficticios** y existen para ejercitar cada
-rama del motor: el que cumple todo, el de licencia vencida, el que tiene la
-estatal pero no la federal, el que rota de empresa cada ocho meses, el que no
-informa la mitad de los datos.
+Los 15 candidatos son **ficticios** y existen para ejercitar cada rama del
+motor: el que cumple todo, el de licencia vencida, el que tiene la estatal pero
+no la federal, el que rota de empresa cada ocho meses, el que no informa la
+mitad de los datos. Sus CVs en PDF se generan con:
+
+```bash
+python -m core.seed.cvs
+```
+
+## Diseño
+
+- [docs/diseno-demos.md](docs/diseno-demos.md) — las tres pantallas y las decisiones de UI
+- [docs/investigacion-vacantes-nl.md](docs/investigacion-vacantes-nl.md) — requisitos y sueldos reales de NL

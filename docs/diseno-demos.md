@@ -145,7 +145,11 @@ Esta capa ya está soportada por el núcleo: `Campo` guarda
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | Núcleo: dominio, criterios, scoring, seed | ✅ |
-| 2 | Persistencia + pipeline + mensajes + **Demo B** completa | ⬜ |
-| 3 | **Demo A**: extracción de PDF + carga masiva | ⬜ |
-| 4 | **Demo C**: confianza por campo + revisión | ⬜ |
+| 2 | Persistencia + pipeline + mensajes + **Demo B** completa | ✅ |
+| 3 | **Demo A**: extracción de PDF + carga masiva | ✅ |
+| 4 | **Demo C**: confianza por campo + revisión | ✅ |
 | 5 | Deploy EasyPanel (3 URLs) + guion de 5 minutos | ⬜ |
+
+Las tres demos pasaron a ser **proyectos independientes** en `demo-cv/`,
+`demo-formulario/` y `demo-hibrido/`, cada uno con su backend y su frontend.
+Verificadas en el navegador, sin errores de consola.

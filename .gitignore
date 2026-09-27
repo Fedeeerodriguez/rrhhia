@@ -6,3 +6,10 @@ __pycache__/
 node_modules/
 dist/
 .pytest_cache/
+
+# Cada demo tiene su propia base y sus dependencias
+*.db
+node_modules/
+dist/
+cvs_prueba/*.pdf
+!docs/cvs_prueba/*.pdf

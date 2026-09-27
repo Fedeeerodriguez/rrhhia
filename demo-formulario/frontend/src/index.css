@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sistema visual RRHHIA
+   Papel claro, tinta casi negra, un solo acento. Nada compite con el dato.
+   Los tres colores semanticos (apto / alerta / fuera) se reservan para el
+   scoring: si se usaran tambien de decoracion, dejarian de significar algo. */
+:root {
+  color-scheme: light;
+  --papel: #FBFBFA;
+  --superficie: #FFFFFF;
+  --borde: #E8E6E1;
+  --tinta: #16181D;
+  --acento: #2C4A7C;
+}
+
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html, body, #root { height: 100%; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--papel);
+  color: var(--tinta);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #DBD8D2; border-radius: 10px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #C4C0B8; background-clip: padding-box; }
+
+@layer base {
+  h1, h2, h3 { letter-spacing: -0.03em; font-weight: 600; }
+  /* Los numeros grandes (scores) con ancho fijo: sin esto la lista "baila"
+     cuando cambian los valores. */
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .tarjeta { @apply bg-superficie rounded-3xl border border-borde; }
+  .tarjeta-hover {
+    @apply transition-all duration-300 ease-out hover:shadow-suave hover:-translate-y-0.5;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5
+           text-[13px] font-medium tracking-tight transition-all duration-200
+           active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primario { @apply btn bg-tinta text-white hover:bg-tinta-suave; }
+  .btn-acento { @apply btn bg-acento text-white hover:bg-acento-700; }
+  .btn-suave { @apply btn bg-piedra-100 text-tinta hover:bg-piedra-200; }
+  .btn-fantasma { @apply btn text-tinta-suave hover:bg-piedra-100 hover:text-tinta; }
+  .btn-lg { @apply px-7 py-3.5 text-[15px]; }
+
+  .campo {
+    @apply w-full rounded-2xl border border-borde bg-superficie px-4 py-3 text-[15px]
+           transition-all duration-200 placeholder:text-piedra-400
+           focus:border-acento focus:outline-none focus:ring-4 focus:ring-acento/10;
+  }
+  .etiqueta { @apply mb-1.5 block text-[13px] font-medium text-tinta-suave; }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
+           text-[11px] font-medium tracking-tight;
+  }
+  .chip-apto { @apply chip bg-apto/10 text-apto; }
+  .chip-alerta { @apply chip bg-alerta/10 text-alerta; }
+  .chip-fuera { @apply chip bg-fuera/10 text-fuera; }
+  .chip-neutro { @apply chip bg-piedra-100 text-tinta-suave; }
+
+  /* Columna del tablero cuando se arrastra algo encima */
+  .zona-activa { @apply border-acento/40 bg-acento/[0.03]; }
+}
+
+@layer utilities {
+  .animar-entrada { animation: entrada 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .animar-aparecer { animation: aparecer 0.3s ease-out both; }
+}
+
+@keyframes entrada {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
