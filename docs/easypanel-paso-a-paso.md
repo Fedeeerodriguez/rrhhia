@@ -100,10 +100,19 @@ Para mostrarla: `/whatsapp` en el dominio abre el simulador del agente.
 Los puertos no se pisan entre sí, así que **las tres pueden convivir en el mismo
 servidor**.
 
-> **Si el panel se queja por un puerto ocupado**, abrí el `docker-compose.yml` de
-> esa rama y borrá las dos líneas de `ports:`. No hacen falta: el tráfico entra
-> por el dominio y nginx alcanza al backend por la red interna. Solo las dejé
-> para poder abrir `/docs` durante la demo.
+> **Los `docker-compose.yml` no publican puertos del host.** EasyPanel avisa
+> *"ports is used in backend / web. It might cause conflicts with other
+> services"* cuando un compose los publica, y tiene razón: el tráfico entra por
+> el dominio, no por un puerto del servidor.
+>
+> Los puertos de la tabla de arriba son para correrlo **en tu máquina**, con el
+> override:
+>
+> ```bash
+> docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+> ```
+>
+> EasyPanel no usa ese segundo archivo.
 
 ---
 
