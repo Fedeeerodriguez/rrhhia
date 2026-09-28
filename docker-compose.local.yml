@@ -1,6 +1,9 @@
 # Puertos para correr en tu maquina. EasyPanel NO usa este archivo: alla el
 # trafico entra por el dominio y publicar puertos del host da conflictos.
 #
+# Se llama .local y no .override a proposito: EasyPanel genera su propio
+# docker-compose.override.yml al desplegar, y docker compose lo toma solo.
+#
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
 # Web:  http://localhost:8082
