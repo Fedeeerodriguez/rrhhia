@@ -41,6 +41,25 @@ export function Chip({ tono = 'neutro', children }) {
   return <span className={CHIPS[tono] ?? CHIPS.neutro}>{children}</span>
 }
 
+
+/* Nivel de aptitud según la IA. Va con su propio color, distinto de los del
+   scoring: es una lectura cualitativa, no un requisito cumplido o incumplido. */
+const NIVELES = {
+  'muy apto': 'bg-acento-50 text-acento',
+  'apto': 'bg-piedra-100 text-tinta-suave',
+  'con reservas': 'bg-alerta/10 text-alerta',
+  'poco apto': 'bg-fuera/10 text-fuera',
+}
+
+export function NivelIA({ nivel }) {
+  if (!nivel) return null
+  return (
+    <span className={`chip ${NIVELES[nivel] ?? NIVELES.apto}`}>
+      <span className="opacity-60">IA</span> {nivel}
+    </span>
+  )
+}
+
 export function Cargando({ texto = 'Cargando' }) {
   return (
     <div className="flex items-center justify-center gap-2.5 py-16 text-[13px] text-tinta-suave">

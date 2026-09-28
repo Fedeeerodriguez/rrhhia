@@ -82,6 +82,28 @@ Sin `ANTHROPIC_API_KEY`, o si la IA no responde en plena presentación, la
 extracción cae a un **motor heurístico** de reglas y nada se detiene. Ese motor
 reproduce el mismo score que el formulario en los 15 candidatos de prueba.
 
+### La evaluación con IA
+
+Sobre el puntaje por requisitos corre una **segunda capa**: una lectura
+cualitativa que las reglas no pueden hacer. Seis empleos en cinco años pueden
+ser rotación o una progresión de rabón a tortón a full; nueve años manejando
+pueden ser reparto urbano o ruta larga a Laredo.
+
+Tres reglas la hacen confiable:
+
+- **La IA no descarta a nadie.** Evalúa a todos, cumplan o no los
+  indispensables, porque todos tienen derecho a ser evaluados. Lo que hace es
+  mostrar quiénes son los más aptos y quiénes no.
+- **Nunca revierte un requisito indispensable.** El ajuste está acotado a ±10 y
+  el tope de los knockout se vuelve a aplicar después: un candidato con la
+  licencia vencida puede quedar mejor ubicado entre los descartados, pero no
+  cruza al grupo de los aptos. Esa línea la decide un hecho, no un criterio.
+- **Los dos números se muestran siempre.** El reclutador ve qué parte es
+  objetiva y qué parte es criterio.
+
+Sin `ANTHROPIC_API_KEY` no hay evaluación y el sistema sigue funcionando con el
+puntaje por requisitos, que es el que manda.
+
 ### Las reglas que hay que saber defender
 
 - **Los indispensables son knockout**: si falta uno, el score topa en 40 por más

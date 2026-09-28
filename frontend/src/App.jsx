@@ -54,6 +54,7 @@ function AreaReclutador() {
   const [abierto, setAbierto] = useState(null)
   const [error, setError] = useState(null)
   const [moviendo, setMoviendo] = useState(false)
+  const [evaluando, setEvaluando] = useState(false)
 
   const refrescar = useCallback(async () => {
     try {
@@ -79,6 +80,15 @@ function AreaReclutador() {
     } catch (e) { setError(e.message) }
   }
 
+  async function evaluarConIA() {
+    setEvaluando(true)
+    try {
+      const r = await api.evaluarIA()
+      await refrescar()
+      if (!r.evaluadas) setError(r.motivo ?? 'No hay candidatos para evaluar.')
+    } catch (e) { setError(e.message) } finally { setEvaluando(false) }
+  }
+
   async function aplicarSugerencias() {
     setMoviendo(true)
     try {
@@ -91,6 +101,11 @@ function AreaReclutador() {
   if (!vacante) return <Cargando texto="Abriendo la vacante" />
 
   const pendientes = tablero?.conteo?.postulado ?? 0
+  // Todos los candidatos se evalúan, estén en la columna que estén: la IA no
+  // descarta, muestra quiénes son los más aptos.
+  const sinEvaluar = (tablero?.columnas ?? [])
+    .flatMap((c) => c.candidatos)
+    .filter((c) => !c.nivel_ia).length
 
   return (
     <Marco
@@ -105,6 +120,11 @@ function AreaReclutador() {
           <a className="btn-suave" href={RUTA_WHATSAPP} target="_blank" rel="noreferrer">
             WhatsApp
           </a>
+          <button className="btn-suave" disabled={evaluando || !sinEvaluar}
+                  onClick={evaluarConIA}
+                  title="Evalúa a todos los candidatos, cumplan o no los requisitos">
+            {evaluando ? 'Evaluando…' : `Evaluar con IA (${sinEvaluar})`}
+          </button>
           <button className="btn-primario" disabled={moviendo || !pendientes}
                   onClick={aplicarSugerencias}>
             {moviendo ? 'Moviendo…' : `Aplicar sugerencias (${pendientes})`}

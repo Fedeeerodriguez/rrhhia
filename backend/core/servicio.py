@@ -6,6 +6,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from core.criterios import Criterio
+from core.evaluacion_ia import evaluar as evaluar_con_ia
+from core.evaluacion_ia import score_final as calcular_score_final
 from core.domain import Perfil
 from core.mensajes import PLANTILLAS
 from core.modelos import (CandidatoDB, EventoDB, MensajeDB, PostulacionDB,
@@ -113,6 +115,49 @@ def recalcular(db: Session, postulacion: PostulacionDB) -> PostulacionDB:
     postulacion.motivo_sugerencia = motivo
     db.commit()
     return postulacion
+
+
+# --- Evaluacion con IA --------------------------------------------------------
+
+def evaluar(db: Session, postulacion: PostulacionDB) -> PostulacionDB:
+    """Agrega la lectura cualitativa. No toca `apto` ni mueve al candidato."""
+    vacante = a_dominio(postulacion.vacante)
+    perfil = perfil_desde_dict(postulacion.perfil)
+    score = calcular(vacante, perfil)
+
+    evaluacion = evaluar_con_ia(vacante, perfil, score)
+    if evaluacion is None:
+        return postulacion
+
+    postulacion.evaluacion_ia = evaluacion.a_dict()
+    postulacion.score_final = calcular_score_final(score, evaluacion)
+    db.commit()
+    return postulacion
+
+
+def evaluar_pendientes(db: Session, vacante_id: int) -> list[dict]:
+    """Evalua a TODOS los que falten, cumplan o no los indispensables.
+
+    Nadie queda afuera de la evaluacion: la IA no descarta, muestra quienes son
+    los mas aptos y quienes no.
+    """
+    pendientes = (db.query(PostulacionDB)
+                  .filter(PostulacionDB.vacante_id == vacante_id,
+                          PostulacionDB.evaluacion_ia.is_(None))
+                  .all())
+    evaluadas = []
+    for fila in pendientes:
+        antes = fila.score
+        evaluar(db, fila)
+        if fila.evaluacion_ia:
+            evaluadas.append({
+                "id": fila.id,
+                "nombre": fila.candidato.nombre,
+                "nivel": fila.evaluacion_ia["nivel"],
+                "score": antes,
+                "score_final": fila.score_final,
+            })
+    return evaluadas
 
 
 # --- Tablero ------------------------------------------------------------------
