@@ -8,9 +8,14 @@
    comparte por WhatsApp y tiene que abrir directo en el formulario. */
 
 export const RUTA_PUBLICA = '/postular'
+export const RUTA_WHATSAPP = '/whatsapp'
 
 export function esPublica(ruta = window.location.pathname) {
   return ruta.startsWith(RUTA_PUBLICA)
+}
+
+export function esWhatsapp(ruta = window.location.pathname) {
+  return ruta.startsWith(RUTA_WHATSAPP)
 }
 
 export function irA(ruta) {

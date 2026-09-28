@@ -47,6 +47,25 @@ export const api = {
       method: 'PATCH', body: JSON.stringify({ campo, valor }),
     }),
 
+  // --- WhatsApp ---
+  mensajeWhatsapp: (waId, texto) =>
+    pedir('/whatsapp/mensaje', { method: 'POST', body: JSON.stringify({ wa_id: waId, texto }) }),
+
+  archivoWhatsapp: (waId, archivo) => {
+    const forma = new FormData()
+    forma.append('wa_id', waId)
+    forma.append('vacante_id', '1')
+    forma.append('archivo', archivo)
+    return pedir('/whatsapp/archivo', { method: 'POST', body: forma })
+  },
+
+  historialWhatsapp: (waId) => pedir(`/whatsapp/${encodeURIComponent(waId)}/historial`),
+
+  conversacionesWhatsapp: () => pedir('/whatsapp/conversaciones'),
+
+  reiniciarWhatsapp: (waId) =>
+    pedir(`/whatsapp/${encodeURIComponent(waId)}`, { method: 'DELETE' }),
+
   mover: (postulacionId, hacia, autor = 'Reclutador') =>
     pedir(`/postulaciones/${postulacionId}/etapa`, {
       method: 'POST', body: JSON.stringify({ hacia, autor }),

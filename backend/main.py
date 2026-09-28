@@ -12,12 +12,12 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core import servicio
+from core import servicio, servicio_whatsapp
 from core.api_comun import buscar_postulacion, buscar_vacante, resumen, router
 from core.db import crear_tablas, get_db
 from core.domain import Campo, Origen, Perfil
@@ -182,6 +182,80 @@ def corregir_campo(postulacion_id: int, correccion: Correccion,
     p.perfil = perfil_a_dict(perfil)
     servicio.recalcular(db, p)
     return {**resumen(p), "score_anterior": anterior}
+
+
+# --- WhatsApp -----------------------------------------------------------------
+#
+# El canal que mas sentido tiene en este rubro: el conductor ya esta en
+# WhatsApp y no va a abrir un formulario web. El agente le pide el CV o le hace
+# preguntas cortas, confirma los datos y crea la postulacion.
+
+class MensajeEntrante(BaseModel):
+    wa_id: str
+    texto: str = ""
+
+
+@app.post("/api/whatsapp/mensaje")
+def mensaje_whatsapp(entrante: MensajeEntrante, vacante_id: int = 1,
+                     db: Session = Depends(get_db)):
+    """Mensaje de texto. Lo usa el simulador de la demo."""
+    vacante = buscar_vacante(db, vacante_id)
+    return servicio_whatsapp.recibir(db, vacante, entrante.wa_id, texto=entrante.texto)
+
+
+@app.post("/api/whatsapp/archivo")
+async def archivo_whatsapp(wa_id: str = Form(...), archivo: UploadFile = File(...),
+                           vacante_id: int = Form(1), db: Session = Depends(get_db)):
+    """El candidato manda su CV por WhatsApp."""
+    vacante = buscar_vacante(db, vacante_id)
+    contenido = await archivo.read()
+    return servicio_whatsapp.recibir(db, vacante, wa_id, archivo=contenido,
+                                     nombre_archivo=archivo.filename or "")
+
+
+@app.post("/api/whatsapp/webhook")
+async def webhook_whatsapp(cuerpo: dict = Body(...), db: Session = Depends(get_db)):
+    """Entrada real del proveedor (YCloud, WATI, Meta Cloud API).
+
+    Cada proveedor arma el JSON distinto, asi que se leen las formas mas comunes
+    en vez de atarse a una. Siempre responde 200: si devolvemos error, el
+    proveedor reintenta y el candidato recibe todo duplicado.
+    """
+    try:
+        mensaje = (cuerpo.get("message") or cuerpo.get("messages") or cuerpo)
+        if isinstance(mensaje, list):
+            mensaje = mensaje[0] if mensaje else {}
+        wa_id = str(mensaje.get("from") or mensaje.get("wa_id")
+                    or mensaje.get("customerPhone") or cuerpo.get("waId") or "").strip()
+        texto = (mensaje.get("text", {}).get("body")
+                 if isinstance(mensaje.get("text"), dict) else mensaje.get("text")) or ""
+        if not wa_id:
+            return {"ok": False, "motivo": "el mensaje no trae numero"}
+
+        vacante = buscar_vacante(db, 1)
+        resultado = servicio_whatsapp.recibir(db, vacante, wa_id, texto=str(texto))
+        # En produccion, aca se despachan los mensajes al proveedor. En la demo
+        # quedan en el historial de la conversacion, como los mails.
+        return {"ok": True, "respuestas": resultado["mensajes"]}
+    except Exception as e:
+        return {"ok": False, "motivo": str(e)}
+
+
+@app.get("/api/whatsapp/conversaciones")
+def listar_conversaciones(vacante_id: int = 1, db: Session = Depends(get_db)):
+    buscar_vacante(db, vacante_id)
+    return servicio_whatsapp.conversaciones(db, vacante_id)
+
+
+@app.get("/api/whatsapp/{wa_id}/historial")
+def historial_whatsapp(wa_id: str, db: Session = Depends(get_db)):
+    return servicio_whatsapp.historial(db, wa_id)
+
+
+@app.delete("/api/whatsapp/{wa_id}", status_code=204)
+def reiniciar_whatsapp(wa_id: str, db: Session = Depends(get_db)):
+    """Para poder repetir la demo con el mismo numero."""
+    servicio_whatsapp.reiniciar(db, wa_id)
 
 
 @app.get("/api/salud")

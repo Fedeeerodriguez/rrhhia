@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, pesos } from './api.js'
-import { esPublica, RUTA_PUBLICA } from './rutas.js'
+import { esPublica, esWhatsapp, RUTA_PUBLICA, RUTA_WHATSAPP } from './rutas.js'
 import { Aviso, Cargando, Marco, Pestanas } from './componentes/Basicos.jsx'
 import Bandeja from './componentes/Bandeja.jsx'
 import PanelDetalle from './componentes/PanelDetalle.jsx'
+import ChatWhatsApp from './componentes/ChatWhatsApp.jsx'
 import RevisionCampos from './componentes/RevisionCampos.jsx'
 import Tablero from './componentes/Tablero.jsx'
 
 /* Demo C -- Híbrido.
 
-   Dos áreas separadas por URL, no dos pestañas:
+   Tres áreas separadas por URL, no pestañas de la misma pantalla:
      /postular   el candidato sube su CV, la IA prellena y él confirma lo dudoso.
+     /whatsapp   el mismo trámite por chat, con el agente haciendo las preguntas.
      /           el pipeline y las comunicaciones. */
 
 function useVacante() {
@@ -100,6 +102,9 @@ function AreaReclutador() {
           <a className="btn-suave" href={RUTA_PUBLICA} target="_blank" rel="noreferrer">
             Link de postulación
           </a>
+          <a className="btn-suave" href={RUTA_WHATSAPP} target="_blank" rel="noreferrer">
+            WhatsApp
+          </a>
           <button className="btn-primario" disabled={moviendo || !pendientes}
                   onClick={aplicarSugerencias}>
             {moviendo ? 'Moviendo…' : `Aplicar sugerencias (${pendientes})`}
@@ -135,6 +140,28 @@ function AreaReclutador() {
   )
 }
 
+function AreaWhatsapp() {
+  const { vacante } = useVacante()
+  if (!vacante) return <Cargando texto="Abriendo la vacante" />
+  return (
+    <div className="px-5 py-10">
+      <header className="mx-auto mb-7 max-w-md text-center">
+        <p className="text-[12px] font-medium uppercase tracking-wider text-acento">
+          Postulación por WhatsApp
+        </p>
+        <h1 className="mt-1 text-[22px] font-semibold tracking-tight">{vacante.titulo}</h1>
+        <p className="mt-1.5 text-[13px] text-tinta-suave">
+          El conductor manda su CV o contesta unas preguntas, y queda postulado sin
+          salir del chat.
+        </p>
+      </header>
+      <ChatWhatsApp />
+    </div>
+  )
+}
+
 export default function App() {
-  return esPublica() ? <AreaCandidato /> : <AreaReclutador />
+  if (esPublica()) return <AreaCandidato />
+  if (esWhatsapp()) return <AreaWhatsapp />
+  return <AreaReclutador />
 }
