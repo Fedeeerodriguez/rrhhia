@@ -20,6 +20,23 @@ documentación, pero ninguna interfaz.
 > Nunca al revés. Si el motor se arregla en una rama de demo, las otras dos
 > quedan mintiendo.
 
+## Docker
+
+Cada rama trae su `docker-compose.yml` con la demo completa (backend + nginx):
+
+```bash
+cd ../rrhhia-formulario
+ANTHROPIC_API_KEY=sk-... docker compose up -d --build   # web en :8080
+```
+
+| Demo | Web | API |
+|---|---|---|
+| `demo-formulario` | 8080 | 8000 |
+| `demo-cv` | 8081 | 8001 |
+| `demo-hibrido` | 8082 | 8002 |
+
+Los puertos no se pisan, así que las tres pueden correr a la vez.
+
 ## Trabajar en las tres a la vez
 
 Las tres ramas están montadas como carpetas separadas con `git worktree`, así
