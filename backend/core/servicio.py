@@ -56,6 +56,14 @@ def a_dominio(fila: VacanteDB) -> Vacante:
 
 # --- Postulaciones ------------------------------------------------------------
 
+def _texto(valor) -> str:
+    """Las columnas de contacto son texto. Un valor con otra forma (un dict que
+    devolvio el modelo, por ejemplo) se descarta en vez de tumbar el INSERT."""
+    if valor is None or isinstance(valor, (dict, list)):
+        return ""
+    return str(valor).strip()
+
+
 def postular(db: Session, vacante_db: VacanteDB, perfil: Perfil,
              origen: str = "formulario") -> PostulacionDB:
     """Califica y guarda. No mueve al candidato de columna: solo sugiere."""
@@ -63,9 +71,9 @@ def postular(db: Session, vacante_db: VacanteDB, perfil: Perfil,
     etapa_sugerida, motivo = sugerencia(score)
 
     candidato = CandidatoDB(
-        nombre=perfil.nombre.valor or "Sin nombre",
-        telefono=perfil.telefono.valor or "",
-        email=perfil.email.valor or "",
+        nombre=_texto(perfil.nombre.valor) or "Sin nombre",
+        telefono=_texto(perfil.telefono.valor),
+        email=_texto(perfil.email.valor),
     )
     db.add(candidato)
     db.flush()
