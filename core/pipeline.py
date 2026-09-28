@@ -102,7 +102,10 @@ class Tablero:
         for p in postulaciones:
             columnas[Etapa(p.etapa)].append(p)
         for etapa in columnas:
-            columnas[etapa].sort(key=lambda p: p.score, reverse=True)
+            # Ordena por el score final (con el ajuste de la IA) cuando existe.
+            columnas[etapa].sort(
+                key=lambda p: (getattr(p, "score_final", None) or p.score),
+                reverse=True)
         return cls(columnas=columnas)
 
     def conteo(self) -> dict[str, int]:

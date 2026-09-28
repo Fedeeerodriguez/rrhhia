@@ -165,6 +165,17 @@ def construir(db_path: str) -> None:
             if extra["etapa"] is not Etapa.POSTULADO:
                 _mover(db, fila, extra["etapa"])
 
+        # Evaluacion con IA de TODOS los candidatos, para que la demo abra
+        # completa. Sin clave se saltea y la semilla queda igual de valida:
+        # el boton "Evaluar con IA" la corre en vivo.
+        import os
+        if os.getenv("ANTHROPIC_API_KEY"):
+            from core.servicio import evaluar_pendientes
+            evaluadas = evaluar_pendientes(db, vacante.id)
+            print(f"  {len(evaluadas)} candidatos evaluados con IA")
+        else:
+            print("  sin ANTHROPIC_API_KEY: la semilla va sin evaluaciones")
+
         for wa_id, estado, mensajes in CONVERSACIONES:
             db.add(ConversacionDB(
                 wa_id=wa_id, vacante_id=vacante.id, estado=estado, perfil={},
