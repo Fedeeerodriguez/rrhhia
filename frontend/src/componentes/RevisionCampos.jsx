@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { api, NOMBRE_CAMPO } from '../api.js'
-import { Anillo, Aviso, Cargando, Chip } from './Basicos.jsx'
+import { Aviso, Cargando, Chip } from './Basicos.jsx'
 
 /* El corazón de la Demo C.
 
@@ -149,7 +149,7 @@ function Campo({ campo, dato, onCambiar, onConfirmar }) {
   )
 }
 
-export default function RevisionCampos({ onListo, onAbrir }) {
+export default function RevisionCampos({ onListo }) {
   const entrada = useRef(null)
   const [encima, setEncima] = useState(false)
   const [leyendo, setLeyendo] = useState(false)
@@ -198,30 +198,24 @@ export default function RevisionCampos({ onListo, onAbrir }) {
 
   if (resultado) {
     return (
-      <div className="animar-entrada mx-auto max-w-lg py-12 text-center">
-        <div className="mb-6 flex justify-center">
-          <Anillo valor={resultado.score} apto={resultado.apto} tamano={104} />
+      <div className="animar-entrada mx-auto max-w-md px-6 py-24 text-center">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-apto/10 text-[22px] text-apto">
+          ✓
         </div>
-        <h2 className="text-[20px] font-semibold tracking-tight">{resultado.nombre}</h2>
-        <p className="mt-1 text-[14px] text-tinta-suave">
-          {resultado.apto ? 'Cumple los requisitos de la vacante' : 'No cumple algún requisito indispensable'}
+        <h1 className="text-[22px] font-semibold tracking-tight">Recibimos tu postulación</h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-tinta-suave">
+          Gracias {resultado.nombre}. Vamos a revisar tus datos y te contactamos al
+          teléfono que dejaste.
         </p>
-        <ul className="mt-5 space-y-1.5 text-left">
-          {resultado.razones.map((r, i) => (
-            <li key={i} className="flex gap-2 text-[13px]">
-              <span className={resultado.apto ? 'text-apto' : 'text-fuera'}>•</span>{r}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-5 text-[12px] text-piedra-400">
-          {resultado.campos_corregidos} campo(s) confirmados o corregidos por una persona
-        </p>
-        <div className="mt-7 flex justify-center gap-2">
-          <button className="btn-acento" onClick={() => onAbrir(resultado.id)}>Ver el desglose</button>
-          <button className="btn-suave" onClick={() => { setResultado(null); setCampos(null); setExtraccion(null) }}>
-            Cargar otro CV
-          </button>
-        </div>
+        {resultado.campos_corregidos > 0 && (
+          <p className="mt-4 text-[12px] text-piedra-400">
+            Confirmaste o corregiste {resultado.campos_corregidos} dato(s) de tu CV.
+          </p>
+        )}
+        <button className="btn-suave mt-8"
+                onClick={() => { setResultado(null); setCampos(null); setExtraccion(null) }}>
+          Cargar otro CV
+        </button>
       </div>
     )
   }

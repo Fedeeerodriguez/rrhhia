@@ -1,20 +1,54 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, pesos } from './api.js'
+import { esPublica, RUTA_PUBLICA } from './rutas.js'
 import { Aviso, Cargando, Marco, Pestanas } from './componentes/Basicos.jsx'
 import Bandeja from './componentes/Bandeja.jsx'
 import PanelDetalle from './componentes/PanelDetalle.jsx'
-import Tablero from './componentes/Tablero.jsx'
 import RevisionCampos from './componentes/RevisionCampos.jsx'
+import Tablero from './componentes/Tablero.jsx'
 
-/* Demo C -- Híbrido. El CV prellena el formulario, una persona confirma lo
-   dudoso, y recién ahí se califica. En el panel de detalle el reclutador puede
-   corregir un dato después y el score se rehace al instante. */
+/* Demo C -- Híbrido.
 
-export default function App() {
+   Dos áreas separadas por URL, no dos pestañas:
+     /postular   el candidato sube su CV, la IA prellena y él confirma lo dudoso.
+     /           el pipeline y las comunicaciones. */
+
+function useVacante() {
   const [vacante, setVacante] = useState(null)
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    api.vacante().then(setVacante).catch((e) => setError(e.message))
+  }, [])
+  return { vacante, error }
+}
+
+function AreaCandidato() {
+  const { vacante, error } = useVacante()
+  if (error) return <div className="mx-auto max-w-md px-6 py-20"><Aviso>{error}</Aviso></div>
+  if (!vacante) return <Cargando texto="Abriendo la vacante" />
+  return (
+    <div className="mx-auto max-w-2xl px-5 pb-20 pt-10 sm:px-6">
+      <header className="animar-entrada mb-8">
+        <p className="text-[12px] font-medium uppercase tracking-wider text-acento">
+          Vacante abierta
+        </p>
+        <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">
+          {vacante.titulo}
+        </h1>
+        <p className="mt-2 text-[15px] text-tinta-suave">
+          {vacante.municipio}, N.L. · {pesos(vacante.salario_min)} a {pesos(vacante.salario_max)} al mes
+        </p>
+      </header>
+      <RevisionCampos />
+    </div>
+  )
+}
+
+function AreaReclutador() {
+  const { vacante } = useVacante()
   const [tablero, setTablero] = useState(null)
   const [mensajes, setMensajes] = useState([])
-  const [pestana, setPestana] = useState('carga')
+  const [pestana, setPestana] = useState('tablero')
   const [abierto, setAbierto] = useState(null)
   const [error, setError] = useState(null)
   const [moviendo, setMoviendo] = useState(false)
@@ -27,9 +61,13 @@ export default function App() {
     } catch (e) { setError(e.message) }
   }, [])
 
+  useEffect(() => { refrescar() }, [refrescar])
+
+  // Las postulaciones entran por otras pantallas (y por WhatsApp): el tablero
+  // se refresca solo para que el reclutador las vea aparecer.
   useEffect(() => {
-    api.vacante().then(setVacante).catch((e) => setError(e.message))
-    refrescar()
+    const id = setInterval(refrescar, 30000)
+    return () => clearInterval(id)
   }, [refrescar])
 
   async function mover(id, hacia) {
@@ -44,7 +82,6 @@ export default function App() {
     try {
       const r = await api.aplicarSugerencias()
       await refrescar()
-      setPestana('tablero')
       if (r.movidos === 0) setError('No hay candidatos nuevos para mover.')
     } catch (e) { setError(e.message) } finally { setMoviendo(false) }
   }
@@ -59,16 +96,20 @@ export default function App() {
       titulo={vacante.titulo}
       bajada={`${vacante.municipio}, N.L. · ${pesos(vacante.salario_min)} a ${pesos(vacante.salario_max)}`}
       acciones={
-        <button className="btn-primario" disabled={moviendo || !pendientes}
-                onClick={aplicarSugerencias}>
-          {moviendo ? 'Moviendo…' : `Aplicar sugerencias (${pendientes})`}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <a className="btn-suave" href={RUTA_PUBLICA} target="_blank" rel="noreferrer">
+            Link de postulación
+          </a>
+          <button className="btn-primario" disabled={moviendo || !pendientes}
+                  onClick={aplicarSugerencias}>
+            {moviendo ? 'Moviendo…' : `Aplicar sugerencias (${pendientes})`}
+          </button>
+        </div>
       }
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Pestanas activa={pestana} onCambiar={setPestana} opciones={[
-          { id: 'carga', nombre: 'Postular con CV' },
-          { id: 'tablero', nombre: 'Tablero', cuenta: tablero ? Object.values(tablero.conteo).reduce((a, b) => a + b, 0) : null },
+          { id: 'tablero', nombre: 'Tablero' },
           { id: 'bandeja', nombre: 'Comunicaciones', cuenta: mensajes.length },
         ]} />
         <p className="text-[12px] text-piedra-400">
@@ -78,11 +119,9 @@ export default function App() {
 
       {error && <div className="mb-5"><Aviso onCerrar={() => setError(null)}>{error}</Aviso></div>}
 
-      {pestana === 'carga' && <RevisionCampos onListo={refrescar} onAbrir={setAbierto} />}
-      {pestana === 'tablero' && (!tablero
-        ? <Cargando />
-        : <Tablero tablero={tablero} onMover={mover} onAbrir={setAbierto} />)}
-      {pestana === 'bandeja' && <Bandeja mensajes={mensajes} />}
+      {!tablero ? <Cargando /> : pestana === 'tablero'
+        ? <Tablero tablero={tablero} onMover={mover} onAbrir={setAbierto} />
+        : <Bandeja mensajes={mensajes} />}
 
       {abierto && (
         <>
@@ -94,4 +133,8 @@ export default function App() {
       )}
     </Marco>
   )
+}
+
+export default function App() {
+  return esPublica() ? <AreaCandidato /> : <AreaReclutador />
 }

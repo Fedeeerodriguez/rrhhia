@@ -93,8 +93,16 @@ def test_confirmar_califica_y_guarda(cliente):
     campos = _subir(cliente).json()["campos"]
     r = cliente.post("/api/vacantes/1/confirmar", json=_confirmacion(campos))
     assert r.status_code == 201
-    assert r.json()["apto"] and r.json()["score"] >= 95
+    detalle = cliente.get(f"/api/postulaciones/{r.json()['id']}").json()
+    assert detalle["apto"] and detalle["score"] >= 95
     assert cliente.get("/api/vacantes/1/tablero").json()["conteo"]["postulado"] == 1
+
+
+def test_al_candidato_no_se_le_devuelve_su_puntaje(cliente):
+    """Es informacion del reclutador y no queremos discutirla por WhatsApp."""
+    campos = _subir(cliente).json()["campos"]
+    cuerpo = cliente.post("/api/vacantes/1/confirmar", json=_confirmacion(campos)).json()
+    assert "score" not in cuerpo and "apto" not in cuerpo
 
 
 def test_lo_confirmado_por_una_persona_deja_de_ser_dudoso(cliente):
@@ -103,10 +111,10 @@ def test_lo_confirmado_por_una_persona_deja_de_ser_dudoso(cliente):
                      json=_confirmacion(campos, municipio="Apodaca"))
     assert r.json()["campos_corregidos"] == 1
 
-    perfil = cliente.get(f"/api/postulaciones/{r.json()['id']}").json()["perfil"]
-    assert perfil["municipio"]["origen"] == "revisado"
-    assert perfil["municipio"]["confianza"] == 1.0
-    assert "municipio" not in r.json()["dudosos"]
+    detalle = cliente.get(f"/api/postulaciones/{r.json()['id']}").json()
+    assert detalle["perfil"]["municipio"]["origen"] == "revisado"
+    assert detalle["perfil"]["municipio"]["confianza"] == 1.0
+    assert "municipio" not in detalle["dudosos"]
 
 
 def test_corregir_un_dato_cambia_el_score_al_instante(cliente):
@@ -164,8 +172,8 @@ def test_una_fecha_invalida_se_rechaza(cliente):
 
 def test_el_que_no_viaja_sigue_sin_pasar(cliente):
     campos = _subir(cliente, "raul-eduardo-ibarra").json()["campos"]
-    r = cliente.post("/api/vacantes/1/confirmar", json=_confirmacion(campos))
-    assert not r.json()["apto"]
+    pid = cliente.post("/api/vacantes/1/confirmar", json=_confirmacion(campos)).json()["id"]
+    assert not cliente.get(f"/api/postulaciones/{pid}").json()["apto"]
 
 
 def test_confirmar_con_el_formulario_casi_vacio(cliente):
@@ -174,8 +182,9 @@ def test_confirmar_con_el_formulario_casi_vacio(cliente):
         "nombre": {"valor": "Pedro Solis", "confianza": 1.0, "corregido": True},
         "telefono": {"valor": "81 5555 4444", "confianza": 1.0, "corregido": True},
     }})
-    assert r.status_code == 201 and not r.json()["apto"]
-    assert r.json()["alertas"]
+    assert r.status_code == 201
+    detalle = cliente.get(f"/api/postulaciones/{r.json()['id']}").json()
+    assert not detalle["apto"] and detalle["alertas"]
 
 
 def test_salud(cliente):

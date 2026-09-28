@@ -144,7 +144,13 @@ def confirmar(vacante_id: int, datos: Confirmacion, db: Session = Depends(get_db
     perfil = _a_perfil(datos.campos)
     revisados = sum(1 for c in datos.campos.values() if c.corregido)
     fila = servicio.postular(db, vacante, perfil, origen="hibrido")
-    return {**resumen(fila), "campos_corregidos": revisados}
+    # Acuse, no resultado: el puntaje no se le devuelve al candidato.
+    return {
+        "id": fila.id,
+        "nombre": fila.candidato.nombre,
+        "campos_corregidos": revisados,
+        "mensaje": "Recibimos tu postulacion. Te contactamos pronto.",
+    }
 
 
 # --- Paso 3: corregir despues, sin volver a llamar a la IA ---------------------
