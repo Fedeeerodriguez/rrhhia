@@ -20,4 +20,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3     CMD p
 
 # seed.py sin --reset es idempotente: siembra la primera vez y despues respeta
 # lo que haya. Asi el contenedor arranca con la demo poblada.
-CMD ["sh", "-c", "python seed.py && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
+# El seed carga datos/semilla.sql la primera vez y despues respeta lo que haya.
+# Si algo falla al sembrar, la API arranca igual: un tablero vacio se puede
+# poblar; un contenedor que no levanta deja la demo muerta.
+CMD ["sh", "-c", "python seed.py || echo 'seed omitido'; exec uvicorn main:app --host 0.0.0.0 --port 8000"]

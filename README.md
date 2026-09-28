@@ -94,6 +94,51 @@ reproduce el mismo score que el formulario en los 15 candidatos de prueba.
 - **El sistema propone, la persona decide.** Nada se mueve solo de columna.
 - **Ningún score se muestra sin su porqué**, en ninguna pantalla.
 
+## Datos de la demo
+
+La base ficticia está en **`backend/datos/semilla.sql`**, versionada dentro del
+proyecto. No es Supabase ni ningún servicio externo: es SQL plano que se carga
+en el SQLite del contenedor.
+
+```bash
+cd backend
+python seed.py            # carga la semilla la primera vez
+python seed.py --reset    # la rehace desde cero
+python seed.py --python   # el seed mínimo: vacante + 15 candidatos sin mover
+```
+
+No es "15 candidatos recién llegados": es un proceso ya andando, con gente en
+entrevista, alguien aceptado, rechazados con su motivo, 21 mensajes enviados y
+3 conversaciones de WhatsApp (una a medio camino, para retomarla en vivo).
+
+| | |
+|---|---|
+| Postulaciones | 20, repartidas en las 5 etapas |
+| Orígenes | formulario, CV, WhatsApp |
+| Conversaciones | 3 |
+
+Se regenera con `python -m tools.generar_sql` desde la rama `main`. **El .sql no
+se edita a mano** salvo para retocar un dato antes de una presentación: los
+cambios de fondo van en el generador.
+
+Como es SQL estándar, el día que esto pase a Postgres o Supabase el mismo
+archivo sirve de punto de partida.
+
+## CVs para probar
+
+En `docs/cvs_preproduccion/` hay CVs que imitan currículums reales —
+abreviaturas, faltas de ortografía, columnas, datos en desorden— más uno
+escaneado sin capa de texto, que es el caso más común de todos.
+
+| Archivo | Qué prueba |
+|---|---|
+| `cv-formal-jose-luis-garza.pdf` | CV bien armado, hecho en Word |
+| `cv-informal-martin-cepeda.pdf` | Hoja de datos con abreviaturas: "Lic. Fed. tipo B vence 08 sep 2027" |
+| `cv-incompleto-ramiro-tovar.pdf` | Con huecos: sin apto médico, sin escolaridad |
+| `cv-escaneado-sin-texto.pdf` | La foto del CV: no tiene texto que extraer |
+
+Se regeneran con `python -m core.seed.cvs_reales`.
+
 ## Tests
 
 ```bash
