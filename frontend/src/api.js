@@ -58,6 +58,9 @@ export const api = {
       method: 'POST', body: JSON.stringify({ hacia, autor }),
     }),
 
+  evaluarIA: (id = 1) =>
+    pedir(`/vacantes/${id}/evaluar-ia`, { method: 'POST' }),
+
   aplicarSugerencias: (id = 1) =>
     pedir(`/vacantes/${id}/aplicar-sugerencias`, { method: 'POST' }),
 }

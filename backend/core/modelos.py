@@ -64,6 +64,10 @@ class PostulacionDB(Base):
     razones: Mapped[list] = mapped_column(JSON, default=list)
     alertas: Mapped[list] = mapped_column(JSON, default=list)
 
+    # Segunda capa: la lectura cualitativa de la IA. Nunca cambia `apto`.
+    evaluacion_ia: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    score_final: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     etapa: Mapped[str] = mapped_column(String(30), default=Etapa.POSTULADO.value)
     sugerencia: Mapped[str] = mapped_column(String(30), default=Etapa.POSTULADO.value)
     motivo_sugerencia: Mapped[str] = mapped_column(String(300), default="")

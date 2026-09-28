@@ -37,6 +37,9 @@ def resumen(p: PostulacionDB) -> dict:
         "sugerencia": p.sugerencia,
         "motivo_sugerencia": p.motivo_sugerencia,
         "origen": p.origen,
+        "evaluacion_ia": p.evaluacion_ia,
+        "score_final": p.score_final,
+        "nivel_ia": (p.evaluacion_ia or {}).get("nivel"),
         "dudosos": [k for k, c in (p.perfil or {}).items()
                     if c.get("origen") == "cv" and (c.get("confianza") or 0) < 0.75],
     }
@@ -140,6 +143,21 @@ def aplicar_sugerencias(vacante_id: int, autor: str = "Reclutador",
         except MovimientoInvalido:
             continue
     return {"movidos": len(movidos), "detalle": movidos}
+
+
+@router.post("/vacantes/{vacante_id}/evaluar-ia")
+def evaluar_con_ia(vacante_id: int, db: Session = Depends(get_db)):
+    """Evalua con IA a TODOS los candidatos que falten.
+
+    La IA no descarta a nadie: se evalua tambien a quienes no cumplen un
+    indispensable, y su ajuste nunca los cruza al grupo de los aptos.
+    """
+    buscar_vacante(db, vacante_id)
+    evaluadas = servicio.evaluar_pendientes(db, vacante_id)
+    if not evaluadas:
+        return {"evaluadas": 0, "detalle": [],
+                "motivo": "No hay candidatos sin evaluar, o falta ANTHROPIC_API_KEY."}
+    return {"evaluadas": len(evaluadas), "detalle": evaluadas}
 
 
 @router.get("/vacantes/{vacante_id}/bandeja")
