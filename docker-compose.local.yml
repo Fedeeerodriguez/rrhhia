@@ -1,0 +1,16 @@
+# Puertos para correr en tu maquina. EasyPanel NO usa este archivo: alla el
+# trafico entra por el dominio y publicar puertos del host da conflictos.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Web:  http://localhost:8082
+# API:  http://localhost:8002/docs
+
+services:
+  backend:
+    ports:
+      - "8002:8000"
+
+  web:
+    ports:
+      - "8082:80"
