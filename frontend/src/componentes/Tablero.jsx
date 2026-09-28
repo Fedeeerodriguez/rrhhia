@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ETAPAS, NOMBRE_ETAPA } from '../api.js'
-import { Anillo, Chip } from './Basicos.jsx'
+import { Anillo, Chip, NivelIA } from './Basicos.jsx'
 
 /* Kanban con arrastre nativo del navegador: sin dependencias y sin magia.
    Igual cada tarjeta tiene su menu de "mover a", porque arrastrar en una
    pantalla chica es incomodo y el reclutador no siempre usa mouse. */
 
 function Tarjeta({ candidato, onAbrir, onArrastrar }) {
-  const { nombre, score, apto, razones = [], alertas = [], dudosos = [] } = candidato
+  const { nombre, score, score_final, apto, nivel_ia,
+          razones = [], alertas = [], dudosos = [] } = candidato
   return (
     <article
       draggable
@@ -19,7 +20,7 @@ function Tarjeta({ candidato, onAbrir, onArrastrar }) {
       className="tarjeta tarjeta-hover animar-entrada cursor-pointer p-4 active:cursor-grabbing"
     >
       <div className="flex items-start gap-3.5">
-        <Anillo valor={score} apto={apto} tamano={48} />
+        <Anillo valor={score_final ?? score} apto={apto} tamano={48} />
         <div className="min-w-0 flex-1">
           <h3 className="text-[14px] font-semibold leading-tight">{nombre}</h3>
           {/* El porque, siempre pegado al numero */}
@@ -28,6 +29,7 @@ function Tarjeta({ candidato, onAbrir, onArrastrar }) {
           </p>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {!apto && <Chip tono="fuera">No cumple</Chip>}
+            <NivelIA nivel={nivel_ia} />
             {alertas.length > 0 && <Chip tono="alerta">{alertas.length} por verificar</Chip>}
             {dudosos.length > 0 && <Chip tono="neutro">{dudosos.length} dudosos</Chip>}
           </div>

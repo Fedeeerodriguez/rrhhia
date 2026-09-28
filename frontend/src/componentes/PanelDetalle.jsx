@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ETAPAS, NOMBRE_CAMPO, NOMBRE_ETAPA, pesos } from '../api.js'
-import { Anillo, Aviso, Cargando, Chip } from './Basicos.jsx'
+import { Anillo, Aviso, Cargando, Chip, NivelIA } from './Basicos.jsx'
 
 /* Panel lateral: es donde se defiende el porcentaje. Cada criterio con su
    puntaje, su peso y la frase que lo explica. */
@@ -76,7 +76,7 @@ export default function PanelDetalle({ postulacionId, onCerrar, onMover, permite
   return (
     <aside className="fixed inset-y-0 right-0 z-30 flex w-full max-w-lg flex-col border-l border-borde bg-superficie shadow-panel">
       <header className="flex items-start gap-4 border-b border-borde px-6 py-5">
-        {datos && <Anillo valor={datos.score} apto={datos.apto} tamano={76} />}
+        {datos && <Anillo valor={datos.score_final ?? datos.score} apto={datos.apto} tamano={76} />}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[17px] font-semibold tracking-tight">
             {datos?.nombre ?? 'Candidato'}
@@ -123,6 +123,63 @@ export default function PanelDetalle({ postulacionId, onCerrar, onMover, permite
                 </ul>
               )}
             </section>
+
+            {datos.evaluacion_ia && (
+              <section>
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-tinta-suave">
+                  Evaluación de la IA
+                </h3>
+                <div className="tarjeta p-4">
+                  {/* Los dos números, siempre juntos: el reclutador tiene que
+                      ver qué parte es objetiva y qué parte es criterio. */}
+                  <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
+                    <span className="text-tinta-suave">Por requisitos</span>
+                    <span className="tabular font-semibold">{datos.score}</span>
+                    {datos.evaluacion_ia.ajuste !== 0 && (
+                      <>
+                        <span className="text-tinta-suave">· ajuste de la IA</span>
+                        <span className={`tabular font-semibold ${datos.evaluacion_ia.ajuste > 0 ? 'text-apto' : 'text-fuera'}`}>
+                          {datos.evaluacion_ia.ajuste > 0 ? '+' : ''}{datos.evaluacion_ia.ajuste}
+                        </span>
+                        <span className="text-tinta-suave">→</span>
+                        <span className="tabular font-semibold">{datos.score_final}</span>
+                      </>
+                    )}
+                    <NivelIA nivel={datos.evaluacion_ia.nivel} />
+                  </div>
+
+                  <p className="text-[13px] leading-relaxed">{datos.evaluacion_ia.resumen}</p>
+
+                  {datos.evaluacion_ia.fortalezas?.length > 0 && (
+                    <ul className="mt-3 space-y-1">
+                      {datos.evaluacion_ia.fortalezas.map((f, i) => (
+                        <li key={i} className="flex gap-2 text-[12px] text-tinta-suave">
+                          <span className="text-apto">+</span>{f}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {datos.evaluacion_ia.riesgos?.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {datos.evaluacion_ia.riesgos.map((r, i) => (
+                        <li key={i} className="flex gap-2 text-[12px] text-alerta">
+                          <span>!</span>{r}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {datos.evaluacion_ia.veredicto && (
+                    <p className="mt-3 border-t border-borde pt-3 text-[12px] font-medium">
+                      {datos.evaluacion_ia.veredicto}
+                    </p>
+                  )}
+                  <p className="mt-3 text-[11px] text-piedra-400">
+                    La IA no descarta a nadie: ordena dentro de cada grupo. Los
+                    requisitos indispensables los decide el dato, no el criterio.
+                  </p>
+                </div>
+              </section>
+            )}
 
             <section>
               <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-tinta-suave">
