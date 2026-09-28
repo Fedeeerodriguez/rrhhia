@@ -31,6 +31,9 @@ MESES = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
     "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
     "noviembre": 11, "diciembre": 12,
+    # Abreviados, como los escribe la gente: "08 sep 2027".
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6, "jul": 7,
+    "ago": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dic": 12,
 }
 
 MUNICIPIOS = [
@@ -158,23 +161,32 @@ def extraer_heuristico(texto: str) -> Perfil:
     # Licencias. La distincion federal/estatal es el filtro mas importante de
     # esta vacante, asi que se busca explicitamente.
     licencias, evidencia = [], None
-    for m in re.finditer(r"licencia[^\n]{0,80}", plano):
+    # "Lic. Fed. tipo B" es tan común como "Licencia Federal categoría B": los
+    # CVs reales vienen abreviados.
+    for m in re.finditer(r"lic(?:encia|\.)?\s*(?:fed(?:eral|\.)?)?[^\n]{0,80}", plano):
         tramo = m.group(0)
-        federal = "federal" in tramo
-        for letra in re.findall(r"\b(?:tipo|categoria|cat\.?)\s*([a-f])\b", tramo):
+        federal = bool(re.search(r"fed", tramo))
+        for letra in re.findall(r"\b(?:tipo|categoria|cat\.?|clase)\s*:?\s*([a-f])\b", tramo):
             licencias.append(f"{'federal' if federal else 'estatal'}_{letra.upper()}")
             evidencia = evidencia or _linea_con(texto, m.start())
     if licencias:
         perfil.licencias = _campo(sorted(set(licencias)), evidencia)
 
-    if m := re.search(r"licencia[^\n]{0,60}?(?:vence|vigente hasta|vigencia)[^\n]{0,30}", plano):
+    # "vence", "vigente al", "vigencia": cada CV lo escribe distinto.
+    vigencia = r"(?:vence|vencimiento|vigente\s+(?:al|hasta)|vigencia)"
+    if m := re.search(rf"lic(?:encia|\.)?[^\n]{{0,70}}?{vigencia}[^\n]{{0,30}}", plano):
         if f := _fecha(_linea_con(texto, m.start())):
             perfil.licencia_vence = _campo(f, _linea_con(texto, m.start()))
-    if m := re.search(r"(?:apto|examen)\s*(?:medico|psicofisico)[^\n]{0,60}", plano):
+    if m := re.search(
+            rf"(?:apto|constancia|examen)\s*(?:de\s+)?(?:medico|psicofisic\w*|aptitud)"
+            rf"[^\n]{{0,70}}", plano):
         if f := _fecha(_linea_con(texto, m.start())):
             perfil.apto_medico_vence = _campo(f, _linea_con(texto, m.start()))
 
-    if m := re.search(r"(\d{1,2})(?:[\.,]\d)?\s*(?:anos|anios)\s+(?:de\s+)?experiencia", plano):
+    # "9 años de experiencia", "11 años manejando", "14 años en carga general".
+    if m := re.search(
+            r"(\d{1,2})(?:[\.,]\d)?\s*(?:anos|anios)\s+"
+            r"(?:de\s+experiencia|manejando|como\s+operador|al\s+volante|en\s+\w+)", plano):
         perfil.anios_experiencia = _campo(float(m.group(1)), _linea_con(texto, m.start()), 0.8)
 
     unidades, evidencia_u = [], None
@@ -197,7 +209,7 @@ def extraer_heuristico(texto: str) -> Perfil:
 
     if m := re.search(r"(?:disponibilidad|viajes?)[^\n]{0,80}", plano):
         tramo = m.group(0)
-        if "foran" in tramo or "carretera" in tramo:
+        if any(x in tramo for x in ("foran", "carretera", "viajar")):
             # Ojo con la negacion: "foraneos: no, solo rutas locales" decia SI
             # con una deteccion ingenua, y un candidato que no viaja entraba
             # como apto. Primero se busca la respuesta explicita.
@@ -216,20 +228,30 @@ def extraer_heuristico(texto: str) -> Perfil:
     # Sin esto, el criterio de estabilidad queda sin dato y todos pierden puntos
     # por igual, que es peor que no tener el criterio.
     empleos, evidencia_h = [], None
-    patron = re.compile(
-        r"^[-*•]?\s*(?P<empresa>[^:\n]{3,60}):\s*(?P<puesto>[^(\n]{3,60})"
-        r"\((?P<desde>\d{1,2}/\d{4})\s*[-–a]+\s*(?P<hasta>\d{1,2}/\d{4}|actualidad)\)",
-        re.IGNORECASE | re.MULTILINE)
-    for m in patron.finditer(texto):
-        desde = _mes_anio(m.group("desde"))
-        bruto_hasta = m.group("hasta").strip().lower()
-        hasta = None if bruto_hasta.startswith("actualidad") else _mes_anio(bruto_hasta)
-        if desde is None:
-            continue
-        empleos.append(Empleo(empresa=m.group("empresa").strip(),
-                              puesto=m.group("puesto").strip(),
-                              desde=desde, hasta=hasta))
-        evidencia_h = evidencia_h or _linea_con(texto, m.start())
+    fecha_a_fecha = (r"(?P<desde>\d{1,2}/\d{4})\s*[-–—a]+\s*"
+                     r"(?P<hasta>\d{1,2}/\d{4}|actualidad|presente|la fecha)")
+    patrones = [
+        # "- Empresa: Puesto (03/2019 - Actualidad)"
+        re.compile(r"^[-*•]?\s*(?P<empresa>[^:\n]{3,60}):\s*(?P<puesto>[^(\n]{3,60})"
+                   r"\(" + fecha_a_fecha + r"\)", re.IGNORECASE | re.MULTILINE),
+        # "EMPRESA S.A." en una línea y "Puesto | 03/2019 – Actualidad" en la siguiente
+        re.compile(r"^(?P<empresa>[^\n]{3,70})\n\s*(?P<puesto>[^|\n]{3,60})\|\s*"
+                   + fecha_a_fecha, re.IGNORECASE | re.MULTILINE),
+    ]
+    for patron in patrones:
+        for m in patron.finditer(texto):
+            desde = _mes_anio(m.group("desde"))
+            bruto_hasta = m.group("hasta").strip().lower()
+            abierto = bruto_hasta.startswith(("actualidad", "presente", "la fecha"))
+            hasta = None if abierto else _mes_anio(bruto_hasta)
+            if desde is None:
+                continue
+            empleos.append(Empleo(empresa=m.group("empresa").strip(" .-•"),
+                                  puesto=m.group("puesto").strip(" .-|"),
+                                  desde=desde, hasta=hasta))
+            evidencia_h = evidencia_h or _linea_con(texto, m.start())
+        if empleos:
+            break
     if empleos:
         perfil.historial = _campo(empleos, evidencia_h, 0.8)
 

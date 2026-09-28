@@ -13,3 +13,6 @@ node_modules/
 dist/
 cvs_prueba/*.pdf
 !docs/cvs_prueba/*.pdf
+
+# La base se genera desde el .sql versionado
+*.db
