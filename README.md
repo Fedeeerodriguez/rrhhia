@@ -12,7 +12,40 @@ Las otras dos viven en sus propias ramas; el núcleo compartido está en `main`.
 | `demo-formulario` | B — formulario público del candidato |
 | `demo-hibrido` | C — el CV prellena el formulario |
 
-## Correr
+## Docker
+
+```bash
+ANTHROPIC_API_KEY=sk-... docker compose up -d --build
+```
+
+- Web: http://localhost:8082
+- API: http://localhost:8002/docs
+
+Dos servicios: `backend` (uvicorn) y `web` (nginx con el build de Vite). El
+frontend pega a `/api` relativo y **nginx lo reenvía al backend**, así que no
+hace falta decirle al front dónde está la API.
+
+Detalles que importan:
+
+- La base vive en un **volumen** (`datos`), no en la imagen: reconstruir no
+  borra los candidatos cargados.
+- `seed.py` corre al arrancar y es idempotente: siembra la primera vez y después
+  respeta lo que haya.
+- **Sin `ANTHROPIC_API_KEY` la demo igual funciona**: la extracción cae al motor
+  heurístico.
+- nginx acepta hasta 64 MB por request y espera hasta 5 minutos, porque la carga
+  masiva de CVs manda varios PDF juntos y la extracción con IA tarda.
+
+Para borrar todo y empezar de cero:
+
+```bash
+docker compose down -v
+```
+
+> Si ya tenés algo escuchando en esos puertos (por ejemplo el `uvicorn` de
+> desarrollo), bajalo antes o cambiá los puertos en `docker-compose.yml`.
+
+## Correr sin Docker
 
 ```bash
 cd backend

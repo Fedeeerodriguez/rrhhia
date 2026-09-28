@@ -1,0 +1,34 @@
+name: rrhhia-hibrido
+
+# Demo C. Levanta con:
+#   ANTHROPIC_API_KEY=sk-... docker compose up -d --build
+# o dejando la clave en un .env al lado de este archivo.
+#
+# Web:  http://localhost:8082
+# API:  http://localhost:8002/docs
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      # Sin clave la extraccion cae al motor heuristico y la demo igual funciona.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATABASE_URL: sqlite:////datos/rrhhia.db
+    volumes:
+      - datos:/datos
+    ports:
+      # Expuesto solo para poder abrir /docs durante la demo.
+      - "8002:8000"
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8082:80"
+    restart: unless-stopped
+
+volumes:
+  datos:
