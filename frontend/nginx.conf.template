@@ -10,9 +10,12 @@ server {
     gzip_min_length 1024;
 
     # El front pega a /api relativo, igual que en desarrollo: nginx lo reenvia
-    # al backend. Asi el frontend no necesita saber la URL de la API.
+    # al backend, asi el frontend no necesita saber la URL de la API.
+    #
+    # API_UPSTREAM se resuelve al arrancar el contenedor. En Compose vale
+    # http://backend:8000; en EasyPanel, el nombre interno del servicio.
     location /api/ {
-        proxy_pass http://backend:8000;
+        proxy_pass ${API_UPSTREAM};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
