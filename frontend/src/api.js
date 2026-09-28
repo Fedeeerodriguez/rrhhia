@@ -33,6 +33,12 @@ export const api = {
     return pedir(`/vacantes/${id}/cvs`, { method: 'POST', body: forma })
   },
 
+  postularConCv: (archivo, id = 1) => {
+    const forma = new FormData()
+    forma.append('archivo', archivo)
+    return pedir(`/vacantes/${id}/postular-cv`, { method: 'POST', body: forma })
+  },
+
   prellenar: (archivo, id = 1) => {
     const forma = new FormData()
     forma.append('archivo', archivo)

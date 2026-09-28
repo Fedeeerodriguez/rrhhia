@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, File, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -78,6 +78,32 @@ async def cargar_cvs(vacante_id: int, archivos: list[UploadFile] = File(...),
     procesados.sort(key=lambda p: (p["apto"], p["score"]), reverse=True)
     return {"procesados": procesados, "fallidos": fallidos,
             "total": len(archivos), "con_error": len(fallidos)}
+
+
+@app.post("/api/vacantes/{vacante_id}/postular-cv", status_code=201)
+async def postular_con_cv(vacante_id: int, archivo: UploadFile = File(...),
+                          db: Session = Depends(get_db)):
+    """El candidato sube su propio CV desde el link publico.
+
+    Devuelve solo un acuse: el puntaje es informacion del reclutador, no suya.
+    """
+    vacante = buscar_vacante(db, vacante_id)
+    contenido = await archivo.read()
+    if len(contenido) > MAX_BYTES:
+        raise HTTPException(413, "El archivo pesa mas de 10 MB")
+
+    texto = (texto_de_pdf(contenido) if (archivo.filename or "").lower().endswith(".pdf")
+             else contenido.decode("utf-8", errors="ignore"))
+    if not texto.strip():
+        raise HTTPException(
+            422, "No pudimos leer el PDF (parece escaneado). Mandanos uno con texto.")
+
+    perfil, _ = extraer(texto)
+    if perfil.nombre.falta:
+        perfil.nombre.valor = (archivo.filename or "Sin nombre").rsplit(".", 1)[0]
+
+    fila = servicio.postular(db, vacante, perfil, origen="cv")
+    return {"id": fila.id, "mensaje": "Recibimos tu postulacion. Te contactamos pronto."}
 
 
 @app.get("/api/salud")
