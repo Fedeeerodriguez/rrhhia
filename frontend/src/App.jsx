@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, pesos } from './api.js'
+import { esPublica, RUTA_PUBLICA } from './rutas.js'
 import { Aviso, Cargando, Marco, Pestanas } from './componentes/Basicos.jsx'
 import Bandeja from './componentes/Bandeja.jsx'
 import FormularioPublico from './componentes/FormularioPublico.jsx'
@@ -7,11 +8,25 @@ import PanelDetalle from './componentes/PanelDetalle.jsx'
 import Tablero from './componentes/Tablero.jsx'
 
 /* Demo B -- Formulario.
-   Dos vistas: el link publico del candidato y el tablero del reclutador. Se
-   alternan con un interruptor arriba para poder mostrar las dos en la demo. */
 
-export default function App() {
-  const [vista, setVista] = useState('reclutador')
+   Dos áreas separadas por URL:
+     /postular   el candidato, desde el celular
+     /           el reclutador, con el pipeline */
+
+function AreaCandidato() {
+  const [vacante, setVacante] = useState(null)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    api.vacante().then(setVacante).catch((e) => setError(e.message))
+  }, [])
+
+  if (error) return <div className="mx-auto max-w-md px-6 py-20"><Aviso>{error}</Aviso></div>
+  if (!vacante) return <Cargando texto="Abriendo la vacante" />
+  return <FormularioPublico vacante={vacante} />
+}
+
+function AreaReclutador() {
   const [vacante, setVacante] = useState(null)
   const [tablero, setTablero] = useState(null)
   const [mensajes, setMensajes] = useState([])
@@ -33,6 +48,13 @@ export default function App() {
     refrescar()
   }, [refrescar])
 
+  // Las postulaciones entran por otra pantalla (o por WhatsApp), asi que el
+  // tablero se refresca solo cada medio minuto.
+  useEffect(() => {
+    const id = setInterval(refrescar, 30000)
+    return () => clearInterval(id)
+  }, [refrescar])
+
   async function mover(id, hacia) {
     try {
       await api.mover(id, hacia)
@@ -51,20 +73,6 @@ export default function App() {
 
   if (!vacante) return <Cargando texto="Abriendo la vacante" />
 
-  if (vista === 'candidato') {
-    return (
-      <>
-        <div className="flex justify-center pt-5">
-          <Pestanas activa={vista} onCambiar={setVista} opciones={[
-            { id: 'reclutador', nombre: 'Vista del reclutador' },
-            { id: 'candidato', nombre: 'Vista del candidato' },
-          ]} />
-        </div>
-        <FormularioPublico vacante={vacante} onListo={refrescar} />
-      </>
-    )
-  }
-
   const pendientes = tablero?.conteo?.postulado ?? 0
 
   return (
@@ -74,10 +82,9 @@ export default function App() {
       bajada={`${vacante.municipio}, N.L. · ${pesos(vacante.salario_min)} a ${pesos(vacante.salario_max)}`}
       acciones={
         <div className="flex flex-wrap items-center gap-2">
-          <Pestanas activa={vista} onCambiar={setVista} opciones={[
-            { id: 'reclutador', nombre: 'Reclutador' },
-            { id: 'candidato', nombre: 'Formulario público' },
-          ]} />
+          <a className="btn-suave" href={RUTA_PUBLICA} target="_blank" rel="noreferrer">
+            Ver el link de postulación
+          </a>
           <button className="btn-primario" disabled={moviendo || !pendientes}
                   onClick={aplicarSugerencias}>
             {moviendo ? 'Moviendo…' : `Aplicar sugerencias (${pendientes})`}
@@ -111,4 +118,8 @@ export default function App() {
       )}
     </Marco>
   )
+}
+
+export default function App() {
+  return esPublica() ? <AreaCandidato /> : <AreaReclutador />
 }
