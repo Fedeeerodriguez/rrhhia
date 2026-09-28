@@ -107,3 +107,27 @@ class MensajeDB(Base):
     momento: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     postulacion: Mapped[PostulacionDB] = relationship(back_populates="mensajes")
+
+
+class ConversacionDB(Base):
+    """Una conversacion de WhatsApp por numero.
+
+    El estado vive en la base y no en memoria: WhatsApp es asincronico, la
+    persona puede contestar tres horas despues y el proceso puede haberse
+    reiniciado en el medio.
+    """
+    __tablename__ = "conversaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wa_id: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    vacante_id: Mapped[int] = mapped_column(ForeignKey("vacantes.id"))
+    estado: Mapped[str] = mapped_column(String(30), default="inicio")
+    perfil: Mapped[dict] = mapped_column(JSON, default=dict)
+    historial: Mapped[list] = mapped_column(JSON, default=list)
+    # Campos opcionales que la persona decidio no contestar.
+    omitidos: Mapped[list] = mapped_column(JSON, default=list)
+    postulacion_id: Mapped[int | None] = mapped_column(
+        ForeignKey("postulaciones.id"), nullable=True)
+    creada: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    actualizada: Mapped[datetime] = mapped_column(DateTime, default=datetime.now,
+                                                  onupdate=datetime.now)
