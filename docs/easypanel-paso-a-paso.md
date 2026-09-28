@@ -7,14 +7,23 @@ la rama y los puertos. Al final de cada bloque están los valores exactos.
 
 ---
 
-## Una sola vez: conectar GitHub
+## El repositorio
 
-1. En EasyPanel, arriba a la derecha: **Settings → Git Providers → GitHub**.
-2. **Connect** y autorizá la cuenta **Fedeeerodriguez**.
-3. Dale acceso al repositorio **`Fedeeerodriguez/rrhhia`** (es privado; sin esto
-   el build falla con "repository not found").
+**Público**, así que EasyPanel no necesita credenciales ni conectar la cuenta de
+GitHub. En el campo de repositorio va la URL completa:
 
-Esto sirve para los tres proyectos.
+```
+https://github.com/Fedeeerodriguez/rrhhia.git
+```
+
+También podés usarla sin `.git`; EasyPanel acepta las dos:
+
+```
+https://github.com/Fedeeerodriguez/rrhhia
+```
+
+> Si más adelante el repo vuelve a ser privado, ahí sí hay que conectar la
+> cuenta en **Settings → Git Providers → GitHub** y darle acceso al repositorio.
 
 ---
 
@@ -26,8 +35,7 @@ Empezá por esta: es la más simple y la que menos depende de la IA.
 2. Dentro del proyecto: **+ Service → Compose**
 3. Nombre del servicio: `demo`
 4. Pestaña **Source**:
-   - Provider: **GitHub**
-   - Repository: `Fedeeerodriguez/rrhhia`
+   - Repository URL: `https://github.com/Fedeeerodriguez/rrhhia.git`
    - Branch: **`demo-formulario`**
    - Build path: `/`
 5. Pestaña **Environment**, pegá:
@@ -36,6 +44,10 @@ Empezá por esta: es la más simple y la que menos depende de la IA.
    ```
    La necesita para la evaluación con IA. El puntaje por requisitos funciona sin
    ella.
+
+   > La clave va **solo acá**, en las variables de entorno del servicio. No está
+   > en el repositorio, y ahora que es público eso importa: nunca la pegues en un
+   > archivo del proyecto.
 6. **Deploy**. El primer build tarda unos minutos (compila el frontend).
 7. Cuando termine: **Domains → Add Domain**
    - Service: **`web`**
@@ -118,6 +130,9 @@ Y en el navegador:
 ---
 
 ## Si algo falla
+
+**"repository not found" o pide credenciales.** El repo es público: revisá que
+la URL esté completa, con `https://` adelante.
 
 **El build muere en `npm ci`.** Es el paso más frágil. Mirá el log: si dice algo
 de versiones de Node, el Dockerfile fija `node:20-alpine` y hay que dejar que
