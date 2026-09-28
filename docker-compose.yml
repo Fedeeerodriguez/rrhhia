@@ -23,6 +23,9 @@ services:
 
   web:
     build: ./frontend
+    environment:
+      # Nombre interno del backend. En EasyPanel se cambia por el del servicio.
+      API_UPSTREAM: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
