@@ -1,11 +1,21 @@
 name: rrhhia-formulario
 
-# Demo B. Levanta con:
-#   ANTHROPIC_API_KEY=sk-... docker compose up -d --build
-# o dejando la clave en un .env al lado de este archivo.
+# Demo B -- Formulario
 #
-# Web:  http://localhost:8080
-# API:  http://localhost:8000/docs
+# Este archivo NO publica puertos del host: en EasyPanel el trafico entra por el
+# dominio, y publicarlos hace que el panel avise de conflictos entre servicios.
+#
+# En EasyPanel:
+#   Repo   https://github.com/Fedeeerodriguez/rrhhia.git
+#   Rama   demo-formulario
+#   Y el dominio apuntado al servicio `web`, puerto 80.
+#
+# En tu maquina, con los puertos del override:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#   Web  http://localhost:8080      API  http://localhost:8000/docs
+#
+# La clave va por variable de entorno, nunca en un archivo del repo:
+#   ANTHROPIC_API_KEY=sk-...
 
 services:
   backend:
@@ -16,9 +26,6 @@ services:
       DATABASE_URL: sqlite:////datos/rrhhia.db
     volumes:
       - datos:/datos
-    ports:
-      # Expuesto solo para poder abrir /docs durante la demo.
-      - "8000:8000"
     restart: unless-stopped
 
   web:
@@ -29,8 +36,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    ports:
-      - "8080:80"
     restart: unless-stopped
 
 volumes:
