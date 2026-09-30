@@ -155,7 +155,7 @@ def test_conversacion_completa_sin_cv_termina_en_postulacion(cliente):
             break
 
     assert r["estado"] == Estado.CONFIRMANDO.value, r["mensajes"]
-    assert "¿Está bien?" in r["mensajes"][-1]
+    assert "Revísalo completo" in r["mensajes"][-1]
 
     final = escribir(cliente, "sí, todo correcto")
     assert final["estado"] == Estado.CERRADA.value
@@ -253,11 +253,19 @@ def test_el_webhook_nunca_devuelve_error(cliente):
 
 # --- Piezas sueltas -----------------------------------------------------------
 
-def test_el_resumen_no_muestra_campos_vacios():
+def test_el_resumen_muestra_tambien_lo_que_falta():
+    """Un resumen que solo muestra lo que tenemos deja que alguien confirme un
+    legajo a medias sin enterarse."""
     agente = Agente("Operador", "Apodaca", 18000, 23000)
     texto = resumen(Perfil())
-    assert "—" not in texto
+    assert "Nombre completo: — (sin dato)" in texto
+    assert "Teléfono: — (sin dato)" in texto
     assert agente.saludo()
+
+
+def test_el_resumen_no_pide_el_telefono_si_es_el_de_este_chat():
+    texto = resumen(Perfil(), omitidos=["telefono"])
+    assert "Teléfono: el número de este chat" in texto
 
 
 # --- Blindaje: nada entra al perfil con la forma equivocada -------------------
@@ -356,3 +364,61 @@ def test_un_dato_con_forma_rara_no_tumba_la_postulacion():
     assert _texto(["a"]) == ""
     assert _texto(None) == ""
     assert _texto("  81 1234 5678 ") == "81 1234 5678"
+
+# --- Nombre completo: nada de respuestas a medias -----------------------------
+
+@pytest.mark.parametrize("texto", [
+    "Martín",                 # solo el nombre de pila
+    "soy Martín",
+    "no sé",
+    "qué onda",
+    "vivo en Monterrey",
+    "el trabajo",
+    "12345",
+])
+def test_no_acepta_un_nombre_a_medias(texto):
+    """Un nombre sin apellido deja un legajo que el reclutador no puede ni
+    buscar ni cotejar contra la licencia."""
+    assert interpretar("nombre", texto) is None
+
+
+@pytest.mark.parametrize("texto,esperado", [
+    ("Ricardo Salinas Treviño", "Ricardo Salinas Treviño"),
+    ("me llamo Ana Ruiz", "Ana Ruiz"),
+    ("soy Omar de la Garza", "Omar de la Garza"),
+    ("mi nombre es José Luis Garza Montemayor", "José Luis Garza Montemayor"),
+])
+def test_acepta_el_nombre_completo(texto, esperado):
+    assert interpretar("nombre", texto) == esperado
+
+
+def test_la_ia_tampoco_puede_meter_un_nombre_a_medias():
+    """El filtro es el mismo venga de las reglas o del modelo."""
+    from core.agente_whatsapp import _validar
+    assert _validar("nombre", "Martín") is None
+    assert _validar("nombre", "Martín Cepeda") == "Martín Cepeda"
+
+
+def test_insiste_hasta_tener_el_nombre_completo(cliente):
+    escribir(cliente, "no tengo CV")
+    r = escribir(cliente, "Martín")
+    assert "nombre" in r["pendientes"]
+    assert "apellido" in " ".join(r["mensajes"])
+    r = escribir(cliente, "Martín Cepeda Ruiz")
+    assert "nombre" not in r["pendientes"]
+
+
+# --- Repreguntar diciendo qué falta ------------------------------------------
+
+def test_la_repregunta_dice_qué_faltó():
+    """"Perdón, no te entendí" deja a la persona adivinando."""
+    from core.agente_whatsapp import repregunta
+    assert "federal" in " ".join(repregunta("licencias", "la de manejar"))
+    assert "mes y el año" in " ".join(repregunta("licencia_vence", "ya casi"))
+
+
+def test_una_evasiva_no_se_trata_como_un_malentendido():
+    """La persona entendió la pregunta; lo que no tiene es el dato a mano."""
+    from core.agente_whatsapp import repregunta
+    texto = " ".join(repregunta("licencia_vence", "no me acuerdo"))
+    assert "no lo puedo dejar en blanco" in texto
