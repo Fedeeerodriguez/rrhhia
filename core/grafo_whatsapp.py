@@ -39,7 +39,8 @@ from langgraph.graph import END, START, StateGraph
 from core.agente_whatsapp import (CIERRE_OK, POR_CAMPO, Campo, Estado, Origen,
                                   Perfil, _campo_mencionado, _plano,
                                   _pregunta_de, _si_o_no, campos_que_faltan,
-                                  entender, extraer, resumen, texto_de_pdf)
+                                  entender, extraer, repregunta, resumen,
+                                  texto_de_pdf)
 
 
 def _ultimo(_viejo, nuevo):
@@ -104,7 +105,7 @@ def nodo_leer_cv(estado: EstadoConversacion) -> dict:
     faltan = campos_que_faltan(perfil, estado.get("omitidos"))
     mensajes = [f"¡Gracias! Ya leí tu CV y saqué {leidos} datos."]
     if not faltan:
-        mensajes.append(resumen(perfil))
+        mensajes.append(resumen(perfil, estado.get("omitidos")))
         return {"mensajes": mensajes, "perfil": perfil,
                 "etapa": Estado.CONFIRMANDO.value}
     mensajes += [f"Me faltan {len(faltan)} cosas, te las pregunto rápido.",
@@ -135,7 +136,8 @@ def nodo_interpretar(estado: EstadoConversacion) -> dict:
     faltan = campos_que_faltan(perfil, omitidos)
 
     if not faltan:
-        return {"mensajes": [resumen(perfil)], "etapa": Estado.CONFIRMANDO.value}
+        return {"mensajes": [resumen(perfil, omitidos)],
+                "etapa": Estado.CONFIRMANDO.value}
 
     campo = faltan[0]
 
@@ -151,7 +153,9 @@ def nodo_interpretar(estado: EstadoConversacion) -> dict:
             # registrado es lo que evita volver a preguntarlo eternamente.
             omitidos.append(campo)
             return _seguir(perfil, omitidos)
-        return {"mensajes": ["Perdón, no te entendí.", _pregunta_de(campo)],
+        # Nada entra al perfil a medias: se vuelve a preguntar diciendo que
+        # fue lo que falto.
+        return {"mensajes": repregunta(campo, texto),
                 "etapa": Estado.PREGUNTANDO.value, "omitidos": omitidos}
 
     setattr(perfil, campo, Campo(valor=valor, origen=Origen.REVISADO, confianza=1.0,
@@ -162,7 +166,7 @@ def nodo_interpretar(estado: EstadoConversacion) -> dict:
 def _seguir(perfil: Perfil, omitidos: list[str]) -> dict:
     restantes = campos_que_faltan(perfil, omitidos)
     if not restantes:
-        return {"mensajes": [resumen(perfil)], "perfil": perfil,
+        return {"mensajes": [resumen(perfil, omitidos)], "perfil": perfil,
                 "omitidos": omitidos, "etapa": Estado.CONFIRMANDO.value}
     return {"mensajes": [_pregunta_de(restantes[0])], "perfil": perfil,
             "omitidos": omitidos, "etapa": Estado.PREGUNTANDO.value}
@@ -192,9 +196,9 @@ def nodo_confirmar(estado: EstadoConversacion) -> dict:
                                          confianza=1.0, fragmento=texto.strip()[:180]))
             if campo in omitidos:
                 omitidos.remove(campo)
-            return {"mensajes": ["Corregido.", resumen(perfil)], "perfil": perfil,
+            return {"mensajes": ["Corregido.", resumen(perfil, omitidos)], "perfil": perfil,
                     "omitidos": omitidos, "etapa": Estado.CONFIRMANDO.value}
-        return {"mensajes": [_pregunta_de(campo)], "perfil": perfil,
+        return {"mensajes": repregunta(campo, texto), "perfil": perfil,
                 "omitidos": [o for o in omitidos if o != campo],
                 "etapa": Estado.PREGUNTANDO.value}
 

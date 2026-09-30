@@ -45,22 +45,38 @@ class Pregunta:
     ejemplo: str = ""
     # Si el candidato no contesta esto, no se lo puede calificar.
     obligatoria: bool = True
+    # Que contestar cuando la respuesta no sirve. Decir *que* falta convierte
+    # un "no te entendi" en algo que la persona puede arreglar sola.
+    reproche: str = ""
 
 
 # El orden importa: primero lo que descalifica. Si alguien no tiene licencia
 # federal no tiene sentido preguntarle por el sueldo pretendido.
 PREGUNTAS: list[Pregunta] = [
-    Pregunta("nombre", "¿Cómo te llamas? Nombre completo, como aparece en tu licencia.",
-             "Ricardo Salinas Treviño"),
+    Pregunta("nombre", "¿Cómo te llamas? Dime tu **nombre completo**, como aparece en tu licencia.",
+             "Ricardo Salinas Treviño",
+             reproche="Necesito tu nombre completo, con apellido. Solo el nombre de "
+                      "pila no me alcanza para registrarte."),
     Pregunta("licencias", "¿Qué licencia tienes vigente? Dime si es federal o estatal y de qué tipo.",
-             "Federal tipo E"),
-    Pregunta("licencia_vence", "¿Cuándo se te vence la licencia?", "15/03/2028"),
-    Pregunta("apto_medico_vence", "¿Hasta cuándo tienes vigente tu apto médico?", "20/07/2027"),
-    Pregunta("anios_experiencia", "¿Cuántos años llevas manejando?", "9"),
-    Pregunta("unidades", "¿Qué unidades has manejado?", "Tractocamión y full"),
-    Pregunta("disponibilidad_foranea", "¿Puedes hacer viajes foráneos?", "Sí"),
-    Pregunta("escolaridad", "¿Hasta qué grado estudiaste?", "Secundaria"),
-    Pregunta("municipio", "¿En qué municipio vives?", "Apodaca"),
+             "Federal tipo E",
+             reproche="Me falta saber si es **federal** o **estatal**, y el tipo "
+                      "(de la A a la E)."),
+    Pregunta("licencia_vence", "¿Cuándo se te vence la licencia?", "15/03/2028",
+             reproche="Necesito la fecha de vencimiento. Con el mes y el año me alcanza."),
+    Pregunta("apto_medico_vence", "¿Hasta cuándo tienes vigente tu apto médico?", "20/07/2027",
+             reproche="Necesito hasta cuándo está vigente. Con el mes y el año me alcanza."),
+    Pregunta("anios_experiencia", "¿Cuántos años llevas manejando?", "9",
+             reproche="Dime nada más el número de años manejando."),
+    Pregunta("unidades", "¿Qué unidades has manejado?", "Tractocamión y full",
+             reproche="Dime cuáles: tractocamión, full, tortón, rabón, camioneta, "
+                      "autobús o roll off."),
+    Pregunta("disponibilidad_foranea", "¿Puedes hacer viajes foráneos?", "Sí",
+             reproche="Contéstame sí o no: ¿puedes salir a carretera varios días?"),
+    Pregunta("escolaridad", "¿Hasta qué grado estudiaste?", "Secundaria",
+             reproche="Dime hasta dónde llegaste: primaria, secundaria, preparatoria, "
+                      "técnica o universidad."),
+    Pregunta("municipio", "¿En qué municipio vives?", "Apodaca",
+             reproche="Dime el municipio donde vives."),
     Pregunta("salario_pretendido", "¿Cuánto esperas ganar al mes?", "21000",
              obligatoria=False),
     Pregunta("materiales_peligrosos", "¿Has manejado materiales peligrosos?", "No",
@@ -184,6 +200,56 @@ def _numero(texto: str) -> float | None:
     return None
 
 
+# Palabras que aparecen cuando alguien contesta cualquier cosa menos su nombre.
+_NO_NOMBRE = {
+    "si", "no", "hola", "buenas", "ok", "listo", "gracias", "que", "onda",
+    "trabajo", "vacante", "empleo", "chofer", "operador", "licencia", "cv",
+    "curriculum", "sabe", "acuerdo", "ahorita", "luego", "despues", "ya",
+    "pues", "aqui", "usted", "senor", "amigo", "jefe", "nada", "idea",
+    # Verbos con los que la gente contesta otra cosa: "vivo en Monterrey".
+    "vivo", "radico", "resido", "estoy", "vengo", "busco", "quiero",
+    "necesito", "tengo", "manejo", "en",
+}
+# Un nombre no empieza con una preposicion: "de Monterrey" es un domicilio.
+_ARRANQUE_INVALIDO = {"de", "del", "la", "el", "en", "y", "mi", "un", "una",
+                      "los", "las", "por", "para", "con"}
+
+
+def _nombre(texto: str) -> str | None:
+    """Nombre completo o nada.
+
+    Un "Martin" pelado no sirve: el legajo queda sin apellido, el reclutador no
+    puede buscarlo ni cotejarlo contra la licencia, y dos Martines distintos son
+    indistinguibles en el tablero. Se exige al menos nombre y un apellido, que
+    es lo minimo con lo que se identifica a una persona.
+    """
+    limpio = re.sub(r"^\s*(me\s+llamo|mi\s+nombre\s+es|yo\s+soy|soy|me\s+dicen)\s+",
+                    "", texto or "", flags=re.IGNORECASE)
+    # Fuera numeros, emojis y puntuacion: lo que queda tienen que ser palabras.
+    limpio = re.sub(r"[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ'\- ]", " ", limpio)
+    palabras = [p for p in limpio.split() if len(p) >= 2]
+    if not 2 <= len(palabras) <= 6:
+        return None
+    if _plano(palabras[0]) in _ARRANQUE_INVALIDO:
+        return None
+    if any(_plano(p) in _NO_NOMBRE for p in palabras):
+        return None
+    return " ".join(palabras)
+
+
+def _evasiva(texto: str) -> bool:
+    """"No se", "luego te digo": es una respuesta, pero no es un dato.
+
+    Se distingue de "no te entendi" porque amerita otra contestacion: la persona
+    entendio la pregunta, lo que no tiene es el dato a mano.
+    """
+    return bool(re.search(
+        r"\bno\s+(se|sabria|recuerdo|estoy\s+seguro)\b|\bno\s+me\s+acuerdo\b"
+        r"|\bni\s+idea\b|\bdespues\b|\bluego\b|\bal\s+rato\b"
+        r"|\bahorita\s+no\b|\bmas\s+tarde\b|\bte\s+(digo|aviso|paso)\b",
+        _plano(texto)))
+
+
 def _telefono(texto: str) -> str | None:
     digitos = re.sub(r"[^\d]", "", texto or "")
     return texto.strip() if len(digitos) >= 10 else None
@@ -217,9 +283,7 @@ def interpretar(campo: str, texto: str) -> Any:
             "", texto.strip(), flags=re.IGNORECASE).strip(" .,")
         return limpio if 2 <= len(limpio) <= 120 else None
     if campo == "nombre":
-        limpio = re.sub(r"^(me\s+llamo|soy|mi\s+nombre\s+es)\s+", "",
-                        texto.strip(), flags=re.IGNORECASE).strip(" .,")
-        return limpio if 2 <= len(limpio) <= 120 else None
+        return _nombre(texto)
     return None
 
 
@@ -229,7 +293,8 @@ Campo: {campo}
 Formato esperado: {formato}
 
 Devolvé SOLO el valor en JSON, sin explicaciones. Si la respuesta no contesta la
-pregunta (dice "no sé", cambia de tema, pregunta algo), devolvé null. No
+pregunta (dice "no sé", cambia de tema, pregunta algo), devolvé null. Una
+respuesta a medias también es null: no completes lo que la persona no dijo. No
 inventes: un null hace que el agente vuelva a preguntar, y eso es mucho mejor
 que un dato falso en el legajo."""
 
@@ -243,7 +308,8 @@ FORMATOS = {
     "disponibilidad_foranea": "true o false",
     "materiales_peligrosos": "true o false",
     "salario_pretendido": "entero en pesos mexicanos por mes",
-    "nombre": "texto",
+    "nombre": ("nombre completo: nombre de pila y al menos un apellido. "
+               "Si solo dijo el nombre de pila, devolvé null"),
     "municipio": "texto, solo el municipio",
     "telefono": "texto",
 }
@@ -298,6 +364,10 @@ def _validar(campo: str, valor: Any) -> Any:
     esperado = _TIPOS.get(campo)
     if esperado and not isinstance(valor, esperado):
         return None
+    # El nombre pasa por el mismo filtro venga de donde venga: si la IA
+    # devuelve "Martin" a secas, tampoco entra.
+    if campo == "nombre":
+        return _nombre(str(valor))
     if campo == "salario_pretendido":
         return int(valor)
     if campo == "anios_experiencia":
@@ -374,32 +444,81 @@ def _legible(campo: str, valor: Any) -> str:
     return str(valor)
 
 
-def resumen(perfil: Perfil) -> str:
+ETIQUETAS = {
+    "nombre": "Nombre completo", "licencias": "Licencia", "licencia_vence": "Vence",
+    "apto_medico_vence": "Apto médico", "anios_experiencia": "Experiencia",
+    "unidades": "Unidades", "disponibilidad_foranea": "Viajes foráneos",
+    "escolaridad": "Estudios", "municipio": "Municipio",
+    "salario_pretendido": "Sueldo esperado",
+    "materiales_peligrosos": "Materiales peligrosos",
+    "telefono": "Teléfono",
+}
+
+
+def resumen(perfil: Perfil, omitidos: "list[str] | None" = None) -> str:
+    """El legajo entero, para que la persona lo confirme de una.
+
+    Se listan TODOS los campos, también los que quedaron sin dato: un resumen
+    que solo muestra lo que tenemos deja que alguien confirme un legajo al que
+    le falta la mitad sin enterarse. Lo que falta se ve, y se puede completar
+    en el mismo mensaje.
+    """
     dudosos = set(campos_dudosos(perfil))
-    lineas = ["Esto es lo que tengo. ¿Está bien?", ""]
-    etiquetas = {
-        "nombre": "Nombre", "licencias": "Licencia", "licencia_vence": "Vence",
-        "apto_medico_vence": "Apto médico", "anios_experiencia": "Experiencia",
-        "unidades": "Unidades", "disponibilidad_foranea": "Viajes foráneos",
-        "escolaridad": "Estudios", "municipio": "Municipio",
-        "salario_pretendido": "Sueldo esperado", "materiales_peligrosos": "Materiales peligrosos",
-    }
-    for campo, etiqueta in etiquetas.items():
+    fuera = set(omitidos or ())
+    lineas = ["Esto es lo que tengo. Revísalo completo, por favor.", ""]
+    sin_dato = []
+    for campo, etiqueta in ETIQUETAS.items():
         dato: Campo = getattr(perfil, campo)
-        if not dato.falta:
-            sufijo = " años" if campo == "anios_experiencia" else ""
-            # Lo que salió del CV sin seguridad se marca, para que la persona
-            # lo mire dos veces antes de dar todo por bueno.
-            marca = "  ← revísalo" if campo in dudosos else ""
-            lineas.append(f"· {etiqueta}: {_legible(campo, dato.valor)}{sufijo}{marca}")
+        if dato.falta:
+            # El teléfono no falta cuando la persona dijo "este mismo": es el
+            # número desde el que está escribiendo.
+            if campo == "telefono" and campo in fuera:
+                lineas.append("· Teléfono: el número de este chat")
+                continue
+            sin_dato.append(etiqueta)
+            lineas.append(f"· {etiqueta}: — (sin dato)")
+            continue
+        sufijo = " años" if campo == "anios_experiencia" else ""
+        # Lo que salió del CV sin seguridad se marca, para que la persona lo
+        # mire dos veces antes de dar todo por bueno.
+        marca = "  ← revísalo" if campo in dudosos else ""
+        lineas.append(f"· {etiqueta}: {_legible(campo, dato.valor)}{sufijo}{marca}")
     lineas.append("")
-    lineas.append('Si algo está mal, dime qué cambio. Si está bien, responde "sí".')
+    if dudosos:
+        lineas.append("Lo marcado con ← lo leí de tu CV y no estoy seguro de "
+                      "haberlo entendido bien.")
+    if sin_dato:
+        lineas.append(f"Sin dato: {', '.join(sin_dato).lower()}. Si me los dices, "
+                      "los agrego.")
+    lineas.append('Si algo está mal o falta, dime qué cambio. Si está todo '
+                  'bien, responde "sí".')
     return "\n".join(lineas)
 
 
 def _pregunta_de(campo: str) -> str:
     p = POR_CAMPO[campo]
     return f"{p.texto}" + (f"\n_Por ejemplo: {p.ejemplo}_" if p.ejemplo else "")
+
+
+def repregunta(campo: str, texto: str) -> list[str]:
+    """Que contestar cuando la respuesta no sirve.
+
+    Tres casos distintos, tres respuestas distintas: la persona se escapó por
+    la tangente, contestó a medias, o dijo algo que no entendimos. Un
+    "perdón, no te entendí" para los tres deja a la gente adivinando.
+    """
+    p = POR_CAMPO[campo]
+    if _evasiva(texto):
+        return [f"Ese dato lo necesito para poder registrarte, no lo puedo "
+                f"dejar en blanco. Si lo tienes que checar, lo vemos cuando lo "
+                f"tengas a mano.",
+                _pregunta_de(campo)]
+    if p.reproche:
+        # El motivo ya contiene la pregunta: repetirla entera suena a robot
+        # trabado. Lo que se repite es el ejemplo, que es lo que destraba.
+        ejemplo = f"\n_Por ejemplo: {p.ejemplo}_" if p.ejemplo else ""
+        return [p.reproche + ejemplo]
+    return ["Perdón, no te entendí.", _pregunta_de(campo)]
 
 
 def _campo_mencionado(texto: str) -> str | None:
@@ -435,7 +554,6 @@ class Agente:
         self.salario_min = salario_min
         self.salario_max = salario_max
         self.empresa = empresa
-        self._omitidos: list[str] = []
 
     def saludo(self) -> str:
         return SALUDO.format(empresa=self.empresa, puesto=self.vacante_titulo,
@@ -470,133 +588,3 @@ class Agente:
             omitidos=salida["omitidos"],
             listo_para_postular=salida["listo_para_postular"],
         )
-
-    # -- helpers --
-
-    def _faltan(self, perfil: Perfil) -> list[str]:
-        return campos_que_faltan(perfil, self._omitidos)
-
-    def _resp(self, mensajes: list[str], estado: Estado, perfil: Perfil,
-              pendientes: list[str] | None = None, postular: bool = False) -> Respuesta:
-        return Respuesta(
-            mensajes=mensajes,
-            estado=estado,
-            perfil=perfil,
-            pendientes=self._faltan(perfil) if pendientes is None else pendientes,
-            omitidos=list(self._omitidos),
-            listo_para_postular=postular,
-        )
-
-    # -- pasos --
-
-    def _con_cv(self, perfil: Perfil, archivo: bytes, nombre: str) -> Respuesta:
-        texto = (texto_de_pdf(archivo) if nombre.lower().endswith(".pdf")
-                 else archivo.decode("utf-8", errors="ignore"))
-        if not texto.strip():
-            # El CV escaneado es lo más común en este rubro: es una foto y no
-            # tiene texto. No es un error, es el caso normal.
-            faltan = self._faltan(perfil)
-            return self._resp(
-                ["No pude leer ese archivo, parece una foto o un escaneo. "
-                 "No te preocupes: te hago unas preguntas y listo.",
-                 _pregunta_de(faltan[0])],
-                Estado.PREGUNTANDO, perfil)
-
-        extraido, _ = extraer(texto)
-        for nombre_campo, campo in extraido.campos().items():
-            if not campo.falta and getattr(perfil, nombre_campo).falta:
-                setattr(perfil, nombre_campo, campo)
-
-        faltan = self._faltan(perfil)
-        leidos = sum(1 for c in perfil.campos().values() if not c.falta)
-        mensajes = [f"¡Gracias! Ya leí tu CV y saqué {leidos} datos."]
-        if not faltan:
-            mensajes.append(resumen(perfil))
-            return self._resp(mensajes, Estado.CONFIRMANDO, perfil, [])
-        mensajes.append(f"Me faltan {len(faltan)} cosas, te las pregunto rápido.")
-        mensajes.append(_pregunta_de(faltan[0]))
-        return self._resp(mensajes, Estado.PREGUNTANDO, perfil)
-
-    def _arranque(self, perfil: Perfil, texto: str) -> Respuesta:
-        # El cuestionario arranca solo si dice que no tiene CV o lo pide. Un
-        # "hola" pelado recibe el saludo, no una pregunta salida de la nada.
-        sin_cv = re.search(
-            r"\bno\s+(tengo|cuento|traigo)\b|\bno\s+lo\s+tengo\b"
-            r"|\bsin\s+(cv|curriculum)\b|\bpregunt|\bhazme\b|\bhaceme\b",
-            _plano(texto))
-        if sin_cv:
-            faltan = self._faltan(perfil)
-            return self._resp(
-                ["Va, te hago unas preguntas cortas.", _pregunta_de(faltan[0])],
-                Estado.PREGUNTANDO, perfil)
-        return self._resp([self.saludo()], Estado.ESPERANDO_CV, perfil)
-
-    def _respuesta_a_pregunta(self, perfil: Perfil, texto: str) -> Respuesta:
-        faltan = self._faltan(perfil)
-        if not faltan:
-            return self._resp([resumen(perfil)], Estado.CONFIRMANDO, perfil, [])
-
-        campo = faltan[0]
-
-        # "este mismo", "el que te estoy escribiendo": el número de WhatsApp ya
-        # es el contacto, no hace falta que lo escriba.
-        if campo == "telefono" and re.search(r"\b(este|el)\s+mismo\b|\beste\b",
-                                             _plano(texto)):
-            self._omitidos.append(campo)
-            restantes = self._faltan(perfil)
-            if not restantes:
-                return self._resp([resumen(perfil)], Estado.CONFIRMANDO, perfil, [])
-            return self._resp([_pregunta_de(restantes[0])], Estado.PREGUNTANDO, perfil)
-
-        valor = entender(campo, texto)
-
-        if valor is None:
-            if not POR_CAMPO[campo].obligatoria:
-                # Lo opcional no se insiste: se marca omitido y se sigue. Que
-                # quede registrado es lo que evita volver a preguntarlo.
-                self._omitidos.append(campo)
-                restantes = self._faltan(perfil)
-                if not restantes:
-                    return self._resp([resumen(perfil)], Estado.CONFIRMANDO, perfil, [])
-                return self._resp([_pregunta_de(restantes[0])], Estado.PREGUNTANDO, perfil)
-            return self._resp(
-                ["Perdón, no te entendí.", _pregunta_de(campo)],
-                Estado.PREGUNTANDO, perfil)
-
-        setattr(perfil, campo, Campo(valor=valor, origen=Origen.REVISADO, confianza=1.0,
-                                     fragmento=texto.strip()[:180]))
-        restantes = self._faltan(perfil)
-        if not restantes:
-            return self._resp([resumen(perfil)], Estado.CONFIRMANDO, perfil, [])
-        return self._resp([_pregunta_de(restantes[0])], Estado.PREGUNTANDO, perfil)
-
-    def _confirmacion(self, perfil: Perfil, texto: str) -> Respuesta:
-        decision = _si_o_no(texto)
-        campo = _campo_mencionado(texto)
-
-        # "no, la licencia vence en marzo" corrige y niega en el mismo mensaje:
-        # se atiende la corrección, que es lo que la persona quiso decir.
-        if campo:
-            valor = entender(campo, texto)
-            if valor is not None:
-                setattr(perfil, campo, Campo(valor=valor, origen=Origen.REVISADO,
-                                             confianza=1.0, fragmento=texto.strip()[:180]))
-                if campo in self._omitidos:
-                    self._omitidos.remove(campo)
-                return self._resp(["Corregido.", resumen(perfil)],
-                                  Estado.CONFIRMANDO, perfil, [])
-            return self._resp([_pregunta_de(campo)], Estado.PREGUNTANDO, perfil, [campo])
-
-        if decision is True:
-            nombre = getattr(perfil.nombre, "valor", None) or "amigo"
-            return self._resp(
-                [CIERRE_OK.format(nombre=str(nombre).split()[0], puesto=self.vacante_titulo)],
-                Estado.CERRADA, perfil, [], postular=True)
-
-        if decision is False:
-            return self._resp(["¿Qué dato corrijo? Dime cuál y el valor correcto."],
-                              Estado.CONFIRMANDO, perfil, [])
-
-        return self._resp(
-            ['No te entendí. Si todo está bien responde "sí"; si no, dime qué dato cambio.'],
-            Estado.CONFIRMANDO, perfil, [])
