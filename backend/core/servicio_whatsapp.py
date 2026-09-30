@@ -6,7 +6,7 @@ buen puerto— crea la postulación como cualquier otro canal.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,23 @@ from core.agente_whatsapp import Agente, Estado
 from core.domain import Campo
 from core.modelos import ConversacionDB, VacanteDB
 from core.serializacion import perfil_a_dict, perfil_desde_dict
+
+
+# Cuanto vive la conversacion sin que nadie escriba. Pasado ese rato, el
+# siguiente mensaje empieza de cero.
+#
+# Es una decision de version de prueba, no una limitacion tecnica: el estado
+# vive en la base y podria durar para siempre. Pero el simulador es una sola
+# linea compartida por todos los que prueban la demo, y sin este corte el
+# tercero que entra cae en la mitad de la conversacion del segundo -- contesta
+# una pregunta que nunca vio y el agente le responde cualquier cosa. En
+# produccion, con un numero por persona, esto se sube o se saca.
+MEMORIA = timedelta(minutes=30)
+
+
+def expirada(fila: ConversacionDB, ahora: datetime | None = None) -> bool:
+    ultimo = fila.actualizada or fila.creada
+    return ultimo is not None and (ahora or datetime.now()) - ultimo > MEMORIA
 
 
 def agente_de(vacante: VacanteDB) -> Agente:
@@ -36,6 +53,15 @@ def conversacion_de(db: Session, wa_id: str, vacante: VacanteDB) -> Conversacion
                               estado=Estado.INICIO.value, perfil={}, historial=[],
                               omitidos=[])
         db.add(fila)
+        db.commit()
+    elif expirada(fila):
+        # Se olvida todo menos la postulacion: si la persona llego a confirmar,
+        # su legajo ya esta en el tablero y ahi se queda.
+        fila.estado = Estado.INICIO.value
+        fila.perfil = {}
+        fila.historial = []
+        fila.omitidos = []
+        fila.postulacion_id = None
         db.commit()
     return fila
 

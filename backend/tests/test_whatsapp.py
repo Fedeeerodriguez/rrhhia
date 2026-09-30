@@ -422,3 +422,73 @@ def test_una_evasiva_no_se_trata_como_un_malentendido():
     from core.agente_whatsapp import repregunta
     texto = " ".join(repregunta("licencia_vence", "no me acuerdo"))
     assert "no lo puedo dejar en blanco" in texto
+
+# --- Memoria de sesion: 30 minutos desde el ultimo mensaje --------------------
+
+def test_dentro_de_la_media_hora_el_agente_se_acuerda(cliente):
+    escribir(cliente, "no tengo CV")
+    escribir(cliente, "Ana Ruiz Garcia")
+    r = escribir(cliente, "federal tipo B")
+    # No volvio a preguntar el nombre: lo tiene de los mensajes anteriores.
+    assert "nombre" not in r["pendientes"]
+
+
+def test_pasada_la_media_hora_empieza_de_cero(cliente):
+    """Sin este corte, el tercero que prueba la demo cae en la mitad de la
+    conversacion del segundo: contesta una pregunta que nunca vio."""
+    from datetime import datetime, timedelta
+
+    from core.db import get_db
+    from core.modelos import ConversacionDB
+    from main import app
+
+    escribir(cliente, "no tengo CV")
+    escribir(cliente, "Ana Ruiz Garcia")
+
+    db = next(app.dependency_overrides[get_db]())
+    fila = db.query(ConversacionDB).filter(ConversacionDB.wa_id == NUMERO).one()
+    fila.actualizada = datetime.now() - timedelta(minutes=31)
+    db.commit()
+
+    r = escribir(cliente, "hola")
+    assert r["estado"] == Estado.ESPERANDO_CV.value
+    assert "asistente" in " ".join(r["mensajes"])
+    assert len(cliente.get(f"/api/whatsapp/{NUMERO}/historial").json()) == 2
+
+
+def test_la_postulacion_ya_hecha_no_se_borra_con_la_memoria(cliente):
+    """Olvidar la charla no es olvidar al candidato: si llego a confirmar, su
+    legajo ya esta en el tablero."""
+    from datetime import datetime, timedelta
+
+    from core.db import get_db
+    from core.modelos import ConversacionDB
+    from main import app
+
+    mandar_cv(cliente)
+    escribir(cliente, "si")
+    antes = cliente.get("/api/vacantes/1/tablero").json()["conteo"]["postulado"]
+
+    db = next(app.dependency_overrides[get_db]())
+    fila = db.query(ConversacionDB).filter(ConversacionDB.wa_id == NUMERO).one()
+    fila.actualizada = datetime.now() - timedelta(hours=2)
+    db.commit()
+
+    escribir(cliente, "hola")
+    assert cliente.get("/api/vacantes/1/tablero").json()["conteo"]["postulado"] == antes
+
+
+def test_la_ventana_se_corre_con_cada_mensaje():
+    """30 minutos desde el ULTIMO mensaje, no desde que empezo la charla."""
+    from datetime import datetime, timedelta
+
+    from core.modelos import ConversacionDB
+    from core.servicio_whatsapp import expirada
+
+    ahora = datetime.now()
+    vieja = ConversacionDB(creada=ahora - timedelta(hours=5),
+                           actualizada=ahora - timedelta(minutes=5))
+    assert not expirada(vieja, ahora)
+    quieta = ConversacionDB(creada=ahora - timedelta(hours=5),
+                            actualizada=ahora - timedelta(minutes=31))
+    assert expirada(quieta, ahora)

@@ -124,6 +124,13 @@ export default function ChatWhatsApp({ onPostulacion }) {
       {error && <div className="mt-4"><Aviso onCerrar={() => setError(null)}>{error}</Aviso></div>}
 
       <p className="mt-4 text-center text-[12px] leading-relaxed text-piedra-400">
+        Por ser una versión de prueba, el agente <strong className="font-medium text-piedra-500">
+        recuerda la conversación hasta 30 minutos después del último mensaje</strong>.
+        Pasado ese rato empieza de cero, para que el siguiente que pruebe no caiga
+        en una conversación a medias.
+      </p>
+
+      <p className="mt-2 text-center text-[12px] leading-relaxed text-piedra-400">
         Simulador. El agente es el mismo que responde el webhook real; acá los
         mensajes viajan por HTTP en vez del proveedor.
       </p>
